@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+		<title>TI Hub | Visão geral</title>
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css" rel="stylesheet" />
+		<link href="https://fonts.googleapis.com" rel="preconnect" />
+		<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+		<link href="style.css" rel="stylesheet" />
+	</head>
+	<body data-page="dashboard">
+		<div class="app-shell">
+			<!-- ===================== BARRA LATERAL (MENU PRINCIPAL) =====================
+       Substitui o antigo menu horizontal (.hub-nav). Mesmos links de sempre,
+       apenas em formato de coluna, com o item da página atual destacado. -->
+			<aside class="sidebar">
+				<div class="sidebar-brand">
+					<div class="brand-chip"><i class="ti ti-server"></i></div>
+					<div>
+						<h1>TI Hub</h1>
+						<div class="sub">Gestão do setor</div>
+					</div>
+				</div>
+
+				<nav class="sidebar-nav" aria-label="Módulos do TI Hub">
+					<a class="nav-link active" href="index.html"><i class="ti ti-layout-dashboard"></i> Visão geral</a>
+					<a class="nav-link" href="senhas.html"><i class="ti ti-key"></i> Lista de senhas</a>
+					<a class="nav-link" href="notebooks.html"><i class="ti ti-device-laptop"></i> Notebooks</a>
+					<a class="nav-link" href="estoque.html"><i class="ti ti-keyboard"></i> Estoque</a>
+					<a class="nav-link" href="compras.html"><i class="ti ti-shopping-cart"></i> Lista de compras</a>
+					<a class="nav-link" href="impressoras.html"><i class="ti ti-printer"></i> Impressoras</a>
+					<a class="nav-link" href="projetos.html"><i class="ti ti-brand-trello"></i> Projetos / Trello</a>
+					<a class="nav-link" href="chamados.html"><i class="ti ti-lifebuoy"></i> Chamados</a>
+					<a class="nav-link" href="orcamento.html"><i class="ti ti-wallet"></i> Orçamento</a>
+					<a class="nav-link" href="tutoriais.html"><i class="ti ti-book-2"></i> Tutoriais internos</a>
+				</nav>
+			</aside>
+
+			<!-- ===================== ÁREA PRINCIPAL DA PÁGINA ===================== -->
+			<div class="main-area">
+				<!-- Barra superior: trilha de navegação (breadcrumb) + ações rápidas -->
+				<header class="topbar">
+					<div class="breadcrumb">
+						<a href="index.html">TI Hub</a>
+						<i class="ti ti-chevron-right"></i>
+						<span>Visão geral</span>
+					</div>
+					<div class="topbar-actions">
+						<button class="icon-btn" type="button" title="Notificações"><i class="ti ti-bell"></i></button>
+						<button class="icon-btn" type="button" title="Alternar contraste"><i class="ti ti-contrast-2"></i></button>
+					</div>
+				</header>
+
+				<div class="wrap">
+					<section class="module-stats">
+						<article class="module-stat"><strong id="dashNotebook">0</strong><span>Notebooks em uso</span></article>
+						<article class="module-stat"><strong id="dashTickets">0</strong><span>Chamados ativos</span></article>
+						<article class="module-stat"><strong id="dashPurchases">0</strong><span>Itens para comprar</span></article>
+						<article class="module-stat"><strong id="dashTutorials">0</strong><span>Tutoriais internos</span></article>
+					</section>
+					<section class="dashboard-grid">
+						<article class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-lifebuoy"></i> Chamados recentes</h2>
+							</div>
+							<div id="recentTickets" class="compact-list"></div>
+						</article>
+						<article class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-shopping-cart"></i> Lista de compras</h2>
+							</div>
+							<div id="recentPurchases" class="compact-list"></div>
+						</article>
+					</section>
+				</div>
+			</div>
+		</div>
+		<script src="app.js"></script>
+	</body>
+</html>

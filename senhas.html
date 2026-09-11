@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+		<title>TI Hub | Lista de senhas</title>
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css" rel="stylesheet" />
+		<link href="https://fonts.googleapis.com" rel="preconnect" />
+		<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+		<link href="style.css" rel="stylesheet" />
+	</head>
+	<body data-page="senhas">
+		<div class="app-shell">
+			<aside class="sidebar">
+				<div class="sidebar-brand">
+					<div class="brand-chip"><i class="ti ti-server"></i></div>
+					<div>
+						<h1>TI Hub</h1>
+						<div class="sub">Gestão do setor</div>
+					</div>
+				</div>
+
+				<nav class="sidebar-nav" aria-label="Módulos do TI Hub">
+					<a class="nav-link" href="index.html"><i class="ti ti-layout-dashboard"></i> Visão geral</a>
+					<a class="nav-link active" href="senhas.html"><i class="ti ti-key"></i> Lista de senhas</a>
+					<a class="nav-link" href="notebooks.html"><i class="ti ti-device-laptop"></i> Notebooks</a>
+					<a class="nav-link" href="estoque.html"><i class="ti ti-keyboard"></i> Estoque</a>
+					<a class="nav-link" href="compras.html"><i class="ti ti-shopping-cart"></i> Lista de compras</a>
+					<a class="nav-link" href="impressoras.html"><i class="ti ti-printer"></i> Impressoras</a>
+					<a class="nav-link" href="projetos.html"><i class="ti ti-brand-trello"></i> Projetos / Trello</a>
+					<a class="nav-link" href="chamados.html"><i class="ti ti-lifebuoy"></i> Chamados</a>
+					<a class="nav-link" href="orcamento.html"><i class="ti ti-wallet"></i> Orçamento</a>
+					<a class="nav-link" href="tutoriais.html"><i class="ti ti-book-2"></i> Tutoriais internos</a>
+				</nav>
+			</aside>
+
+			<!-- ===================== ÁREA PRINCIPAL DA PÁGINA ===================== -->
+			<div class="main-area">
+				<!-- Barra superior: trilha de navegação (breadcrumb) + ações rápidas -->
+				<header class="topbar">
+					<div class="breadcrumb">
+						<a href="index.html">TI Hub</a>
+						<i class="ti ti-chevron-right"></i>
+						<span>Lista de senhas</span>
+					</div>
+					<div class="topbar-actions">
+						<button class="icon-btn" type="button" title="Notificações"><i class="ti ti-bell"></i></button>
+						<button class="icon-btn" type="button" title="Alternar contraste"><i class="ti ti-contrast-2"></i></button>
+					</div>
+				</header>
+
+				<div class="wrap">
+					<nav class="tabs">
+						<button class="tab active" data-password-tab="emails"><i class="ti ti-shield-lock"></i> Emails</button>
+						<button class="tab" data-password-tab="software"><i class="ti ti-apps"></i> Softwares</button>
+					</nav>
+					<!-- ADICIONAR SENHA DE EMAIL -->
+					<section id="passwordEmails">
+						<!-- registrar -->
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-user-shield"></i> Novo e-mail</h2>
+							</div>
+							<form id="formEmails">
+								<div class="form-grid">
+									<div class="field"><label>Nome</label><input name="nome" required /></div>
+									<div class="field"><label>E-mail</label><input name="emails" type="email" required /></div>
+									<div class="field"><label>Senha</label><input name="senha" type="password" /></div>
+								</div>
+
+								<div class="form-actions">
+									<button class="ghost hidden" id="cancelEditEmails" type="button">Cancelar edição</button>
+									<button class="primary" type="submit">Adicionar</button>
+								</div>
+							</form>
+						</div>
+						<!-- tabela de registrados-->
+						<div class="panel">
+							<div class="table-wrap">
+								<table>
+									<thead>
+										<tr>
+											<th>Nome</th>
+											<th>E-mail</th>
+											<th>Senha</th>
+											<th></th>
+										</tr>
+									</thead>
+									<tbody id="EmailsRows"></tbody>
+								</table>
+							</div>
+						</div>
+					</section>
+
+					<!-- ADICIONAR SENHA DE SOFTWARE -->
+					<section id="passwordSoftware" class="hidden">
+						<!-- registrar -->
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-plus"></i> Novo software</h2>
+							</div>
+							<form id="formSoftware">
+								<div class="form-grid">
+									<div class="field"><label>Software</label><input name="nome" required /></div>
+									<div class="field"><label>Login / e-mail</label><input name="login" required /></div>
+									<div class="field"><label>URL / local</label><input name="url" /></div>
+									<div class="field"><label>Senha</label><input name="senha" type="password" placeholder="Deixe em branco para manter a atual" /></div>
+								</div>
+								<div class="form-actions">
+									<button class="ghost hidden" id="cancelEditSoftware" type="button">Cancelar edição</button>
+									<button class="primary" type="submit">Adicionar software</button>
+								</div>
+							</form>
+						</div>
+						<!-- tabela de registrados-->
+						<div class="panel">
+							<div class="table-wrap">
+								<table>
+									<thead>
+										<tr>
+											<th>Software</th>
+											<th>Login</th>
+											<th>URL / local</th>
+											<th>Senha</th>
+											<th></th>
+										</tr>
+									</thead>
+									<tbody id="softwareRows"></tbody>
+								</table>
+							</div>
+						</div>
+					</section>
+
+					<!-- Mensagem de salvo / desfazer exclusão -->
+					<div class="toast" id="toast">Salvo</div>
+				</div>
+			</div>
+		</div>
+		<script src="app.js"></script>
+	</body>
+</html>
