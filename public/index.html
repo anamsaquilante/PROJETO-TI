@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Controle de Notebooks</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="brand-chip"><i class="ti ti-device-laptop"></i></div>
+      <div>
+        <h1>Monitoramento de equipamentos</h1>
+        <div class="sub">TI - controle de notebooks</div>
+      </div>
+    </div>
+  </header>
+
+<!-- Stats -->
+  <section class="stats">
+    <article class="stat">
+      <div class="num" id="s-uso">0</div>
+      <div class="lbl">Em uso</div>
+    </article>
+    <article class="stat">
+      <div class="num" id="s-devolvido">0</div>
+      <div class="lbl">Devolvidos</div>
+    </article>
+    <article class="stat">
+      <div class="num" id="s-defeito">0</div>
+      <div class="lbl">Danificados</div>
+    </article>
+  </section>
+
+<!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="notebooks"><i class="ti ti-device-laptop"></i> Colaboradores <span class="tab-count" id="countNb">0</span></button>
+    <button class="tab" data-tab="alunos"><i class="ti ti-school"></i> Alunos <span class="tab-count" id="countAlu">0</span></button>
+    <button class="tab" data-tab="suporte"><i class="ti ti-tool"></i> Suporte <span class="tab-count" id="countSup">0</span></button>
+  </nav>
+
+<!-- Notebooks Colaboradores -->
+  <section class="view active" id="tab-notebooks">
+
+    <!-- REGISTRAR MOVIMENTAÇÃO -->
+    <div class="panel">
+      <div class="panel-head"><h2><i class="ti ti-plus"></i> Registrar movimentação</h2></div>
+      <form id="formNotebook">
+        <div class="form-grid form-grid-2">
+          <div class="field">
+            <label>Modelo</label>
+            <div class="modelo-toggle">
+              <input
+                id="nb-modelo"
+                placeholder="Selecione ou digite o modelo"
+                autocomplete="on"
+                required
+                type="text">
+
+              <button
+                type="button"
+                class="toggle-modelos"
+                data-input="nb-modelo"
+                aria-label="Exibir modelos">
+                <i class="ti ti-chevron-down"></i>
+              </button>
+
+              <div class="lista-modelos" data-lista-para="nb-modelo"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Nº de patrimônio</label>
+            <input id="nb-patrimonio" placeholder="00000" required type="text">
+          </div>
+          <div class="field">
+            <label>Colaborador</label>
+            <input id="nb-colaborador" placeholder="Nome do colaborador" type="text">
+          </div>
+          <div class="field">
+            <label>Setor</label>
+            <div class="setor-toggle">
+            <input 
+              id="nb-setor" 
+              placeholder="Setor do colaborador" 
+              type="text">
+
+              <button
+                type="button"
+                class="toggle-setores"
+                data-input="nb-setor"
+                aria-label="Exibir setores">
+                <i class="ti ti-chevron-down"></i>
+              </button>
+
+              <div class="lista-setores" data-lista-para="nb-setor"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Data</label>
+            <input id="nb-data" type="date" required>
+          </div>
+          <div class="field">
+            <label>Registro</label>
+            <select id="nb-registro">
+              <option value="aquisicao">Aquisição</option>
+              <option value="devolucao">Devolução</option>
+            </select>
+          </div>
+          <div class="field hidden" id="field-devolucao-tipo">
+            <label>Devolução</label>
+            <select id="nb-tipo-devolucao">
+              <option value="sem-defeito">Sem defeito</option>
+              <option value="com-defeito">Com defeito</option>
+            </select>
+          </div>
+          <div class="field full hidden" id="field-defeito">
+            <label>Descrição do defeito</label>
+            <textarea id="nb-defeito" placeholder="Tela trincada, não liga, teclado com falha..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="ghost hidden" id="cancelEditNb" type="button">Cancelar edição</button>
+          <button class="primary" type="submit">Salvar registro</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- EQUIPAMENTOS REGISTRADOS -->
+    <div class="panel">
+      <!-- Cabeçalho e filtros de status -->
+      <div class="panel-head"><h2><i class="ti ti-list"></i> Equipamentos registrados</h2></div>
+      <div class="status-buttons">
+        <button class="status-filter active" data-status="em-uso"><i class="ti ti-clock"></i> Em uso</button>
+        <button class="status-filter" data-status="devolvido"><i class="ti ti-check"></i> Devolvidos</button>
+        <button class="status-filter" data-status="danificado"><i class="ti ti-alert-triangle"></i> Danificados</button>
+      </div>
+
+      <!-- Em uso -->
+      <div class="status-section active" data-section="em-uso">
+
+      <!-- Filtros por setor e modelo -->
+        <div class="filtros-categoria">
+          <div class="filtro-item">
+            <label><i class="ti ti-building"></i> Filtrar por setor:</label>
+            <select id="filtro-setor-em-uso" onchange="aplicarFiltros('em-uso')">
+              <option value="">Todos os setores</option>
+            </select>
+          </div>
+          <div class="filtro-item">
+            <label><i class="ti ti-device-laptop"></i> Filtrar por modelo:</label>
+            <select id="filtro-modelo-em-uso" onchange="aplicarFiltros('em-uso')">
+              <option value="">Todos os modelos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Equipamento</th>
+                <th>Colaborador(a)</th>
+                <th>
+                  <button
+                    type="button"
+                    class="sort-date-btn"
+                    data-sort-date="em-uso"
+                    aria-label="Ordenar por data de aquisição"
+                    title="Ordenar por data de aquisição">
+                    <span>Data de aquisição</span>
+                    <i class="ti ti-arrows-sort"></i>
+                  </button>
+                </th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bodyEmUso"></tbody>
+          </table>
+        </div>
+        <!-- Mensagem de vazio -->
+        <div class="empty" id="emptyUso">Nenhum equipamento em uso.</div>
+        <!-- Exportação -->
+        <div class="export-actions">
+          <thead>
+            <tr>
+              <th><button class="export-btn" id="btnExportarEmUsoPDF" type="button"><i class="ti ti-file-pdf"></i> Exportar PDF</button></th>
+              <th><button class="export-btn"><a target="_blank" href="https://apps.docusign.com/send/prepare-template/5e4e2a28-be0b-4f9d-8134-cc172e93620d">Termo de Aquisição</a></button></th>
+            </tr>
+          </thead>
+        </div>
+      </div>
+
+      <!-- Devolvido -->
+      <div class="status-section" data-section="devolvido">
+
+        <!-- Filtros por setor e modelo -->
+        <div class="filtros-categoria">
+          <div class="filtro-item">
+            <label><i class="ti ti-building"></i> Filtrar por setor:</label>
+            <select id="filtro-setor-devolvido" onchange="aplicarFiltros('devolvido')">
+              <option value="">Todos os setores</option>
+            </select>
+          </div>
+          <div class="filtro-item">
+            <label><i class="ti ti-device-laptop"></i> Filtrar por modelo:</label>
+            <select id="filtro-modelo-devolvido" onchange="aplicarFiltros('devolvido')">
+              <option value="">Todos os modelos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Equipamento</th>
+                <th>Colaborador(a)</th>
+                <th>
+                  <button
+                    type="button"
+                    class="sort-date-btn"
+                    data-sort-date="devolvido"
+                    aria-label="Ordenar por data de aquisição"
+                    title="Ordenar por data de aquisição">
+                    <span>Data de aquisição</span>
+                    <i class="ti ti-arrows-sort"></i>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    class="sort-date-btn"
+                    data-sort-date="devolucao-devolvido"
+                    aria-label="Ordenar por data de devolução"
+                    title="Ordenar por data de devolução">
+                    <span>Data de devolução</span>
+                    <i class="ti ti-arrows-sort"></i>
+                  </button>
+                </th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bodyDevolvido"></tbody>
+          </table>
+        </div>
+        <!-- Mensagem de vazio -->
+        <div class="empty" id="emptyDevolvido">Nenhum equipamento devolvido.</div>
+        <div class="export-actions">
+              <thead>
+                <tr>
+                  <th><button class="export-btn" id="btnExportarDevolvidoPDF" type="button"><i class="ti ti-file-pdf"></i> Exportar PDF</button></th>
+                  <th><button class="export-btn" id="btnTermoDeDevolucaoSemDefeito"><a target="_blank" href="https://apps.docusign.com/send/prepare-template/dc5ce85e-15c4-4351-98e8-8f2fb050f69f">Termo de Devolução sem Defeito</a></button></th>
+                </tr>
+              </thead>
+        </div>
+      </div>
+
+      <!-- Danificados -->
+      <div class="status-section" data-section="danificado">
+
+        <!-- Filtros por setor e modelo -->
+        <div class="filtros-categoria">
+          <div class="filtro-item">
+            <label><i class="ti ti-building"></i> Filtrar por setor:</label>
+            <select id="filtro-setor-danificado" onchange="aplicarFiltros('danificado')">
+              <option value="">Todos os setores</option>
+            </select>
+          </div>
+          <div class="filtro-item">
+            <label><i class="ti ti-device-laptop"></i> Filtrar por modelo:</label>
+            <select id="filtro-modelo-danificado" onchange="aplicarFiltros('danificado')">
+              <option value="">Todos os modelos</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Equipamento</th>
+                <th>Colaborador(a)</th>
+                <th>
+                  <button
+                    type="button"
+                    class="sort-date-btn"
+                    data-sort-date="danificado"
+                    aria-label="Ordenar por data de aquisição"
+                    title="Ordenar por data de aquisição">
+                    <span>Data de aquisição</span>
+                    <i class="ti ti-arrows-sort"></i>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    type="button"
+                    class="sort-date-btn"
+                    data-sort-date="devolucao-devolvido"
+                    aria-label="Ordenar por data de devolução"
+                    title="Ordenar por data de devolução">
+                    <span>Data de devolução</span>
+                    <i class="ti ti-arrows-sort"></i>
+                  </button>
+                </th>
+                <th>Defeito</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="bodyDanificado"></tbody>
+          </table>
+        </div>
+        <!-- Mensagem de vazio -->
+        <div class="empty" id="emptyDanificado">Nenhum equipamento danificado.</div>
+        <!-- Exportação -->
+        <div class="export-actions">
+            <thead>
+              <tr>
+                <th><button class="export-btn" id="btnExportarDanificadoPDF" type="button"><i class="ti ti-file-pdf"></i> Exportar PDF</button></th>
+                <th><button class="export-btn" id="btnTermoDeDevolucaoComDefeito"><a target="_blank" href="https://apps.docusign.com/send/prepare-template/16946bf1-a057-4122-8197-73cf98a54faa">Termo de Devolução com Defeito</a></button></th>
+              </tr>
+            </thead>
+        </div>
+    </div>
+  </section>
+
+<!-- Notebooks de Alunos -->
+  <section class="view" id="tab-alunos">
+
+    <!-- Listagem de notebooks de alunos -->
+    <div class="panel">
+      <div class="panel-head"><h2><i class="ti ti-list"></i> Notebooks de alunos</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Equipamento</th><th>Sala</th><th>Nº de Trava</th><th></th></tr></thead>
+          <tbody id="bodyAlunos"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="emptyAlu">Nenhum notebook de aluno registrado ainda.</div>
+    </div>
+    
+    <!-- Registrar notebook de aluno -->
+    <div class="panel">
+      <div class="panel-head"><h2><i class="ti ti-plus"></i> Registrar notebook de aluno</h2></div>
+      <form id="formAluno">
+        <div class="form-grid">
+          <div class="field">
+            <label>Modelo</label>
+            <div class="modelo-toggle">
+              <input
+                id="al-modelo"
+                placeholder="Selecione ou digite o modelo"
+                autocomplete="on"
+                required
+                type="text">
+
+              <button
+                type="button"
+                class="toggle-modelos"
+                data-input="al-modelo"
+                aria-label="Exibir modelos">
+                <i class="ti ti-chevron-down"></i>
+              </button>
+
+              <div class="lista-modelos" data-lista-para="al-modelo"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Nº de patrimônio</label>
+            <input id="al-patrimonio" placeholder="00000" required type="text">
+          </div>
+          <div class="field">
+            <label>Sala</label>
+            <input id="al-sala" placeholder="Ex: Lab 10" required type="text">
+          </div>
+          <div class="field">
+            <label>Nº de Trava</label>
+            <input id="al-trava" placeholder="X00000" required type="text">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="ghost hidden" id="cancelEditAlu" type="button">Cancelar edição</button>
+          <button class="primary" type="submit">Salvar registro</button>
+        </div>
+      </form>
+    </div>
+
+  </section>
+
+<!-- Notebooks de Suporte -->
+  <section class="view" id="tab-suporte">
+    <div class="panel">
+      <div class="panel-head"><h2><i class="ti ti-plus"></i> Registrar notebook de suporte</h2></div>
+      <form id="formSuporte">
+        <div class="linha">
+          <div class="field">
+            <label>Modelo</label>
+            <div class="modelo-toggle">
+              <input
+                id="sp-modelo"
+                placeholder="Selecione ou digite o modelo"
+                autocomplete="on"
+                required
+                type="text">
+
+              <button
+                type="button"
+                class="toggle-modelos"
+                data-input="sp-modelo"
+                aria-label="Exibir modelos">
+                <i class="ti ti-chevron-down"></i>
+              </button>
+
+              <div class="lista-modelos" data-lista-para="sp-modelo"></div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Nº de patrimônio</label>
+            <input id="sp-patrimonio" placeholder="00000" required type="text">
+          </div>
+          <div class="field">
+            <label>Localização do equipamento</label>
+            <input id="sp-local" placeholder="Sala TI - Armário..." required type="text">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="ghost hidden" id="cancelEditSup" type="button">Cancelar edição</button>
+          <button class="primary" type="submit">Salvar registro</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2><i class="ti ti-list"></i> Notebooks de suporte</h2></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Equipamento</th><th>Localização</th><th></th></tr></thead>
+          <tbody id="bodySuporte"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="emptySup">Nenhum notebook de suporte registrado ainda.</div>
+    </div>
+  </section>
+
+<!-- Mensagem de salvo -->
+  <div class="toast" id="toast">Salvo</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>

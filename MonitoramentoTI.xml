@@ -1,0 +1,21 @@
+<service>
+  <id>MonitoramentoTI</id>
+  <name>Monitoramento TI</name>
+  <description>Aplicação corporativa de movimentação e empréstimo de equipamentos.</description>
+
+  <executable>C:\Program Files\nodejs\node.exe</executable>
+  <arguments>server.js</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+
+  <startmode>Automatic</startmode>
+  <stoptimeout>15 sec</stoptimeout>
+  <onfailure action="restart" delay="10 sec" />
+  <onfailure action="restart" delay="30 sec" />
+  <onfailure action="restart" delay="60 sec" />
+  <resetfailure>1 day</resetfailure>
+
+  <log mode="roll-by-size-time">
+    <sizeThreshold>10485760</sizeThreshold>
+    <pattern>yyyyMMdd</pattern>
+  </log>
+</service>

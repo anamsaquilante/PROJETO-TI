@@ -1,0 +1,60 @@
+2026-08-11 17:17:31,858 DEBUG - Starting WinSW in console mode
+2026-08-11 17:17:32,102 INFO  - Installing service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-11 17:17:32,361 INFO  - Service 'Monitoramento TI (MonitoramentoTI)' was installed successfully.
+2026-08-11 17:17:42,706 DEBUG - Starting WinSW in console mode
+2026-08-11 17:17:43,155 INFO  - Starting service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-11 17:17:45,231 DEBUG - Starting WinSW in service mode
+2026-08-11 17:17:45,386 INFO  - Service 'Monitoramento TI (MonitoramentoTI)' started successfully.
+2026-08-11 17:17:45,932 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-11 17:17:51,140 INFO  - Started process 196
+2026-08-11 17:17:51,191 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-12 07:55:22,097 DEBUG - Starting WinSW in console mode
+2026-08-12 07:55:22,245 FATAL - Unhandled exception
+System.Exception: Unknown command: install.\MonitoramentoTI.exe
+   at WinSW.Program.Run(String[] argsArray, IServiceConfig config)
+   at WinSW.Program.Main(String[] args)
+2026-08-12 07:55:26,548 DEBUG - Starting WinSW in console mode
+2026-08-12 07:55:26,685 INFO  - Installing service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-12 07:55:26,708 ERROR - A service with ID 'MonitoramentoTI' already exists.
+2026-08-12 07:55:26,764 FATAL - Failed to install the service. O serviço especificado já existe.
+2026-08-12 07:55:59,868 DEBUG - Starting WinSW in console mode
+2026-08-12 07:56:00,009 INFO  - Uninstalling service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-12 07:56:00,035 INFO  - Service 'Monitoramento TI (MonitoramentoTI)' was uninstalled successfully.
+2026-08-12 07:56:06,251 DEBUG - Starting WinSW in console mode
+2026-08-12 07:56:06,388 INFO  - Installing service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-12 07:56:06,494 INFO  - Service 'Monitoramento TI (MonitoramentoTI)' was installed successfully.
+2026-08-12 07:56:11,840 DEBUG - Starting WinSW in console mode
+2026-08-12 07:56:11,998 INFO  - Starting service 'Monitoramento TI (MonitoramentoTI)'...
+2026-08-12 07:56:13,487 DEBUG - Starting WinSW in service mode
+2026-08-12 07:56:13,619 INFO  - Service 'Monitoramento TI (MonitoramentoTI)' started successfully.
+2026-08-12 07:56:13,991 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-12 07:56:14,210 INFO  - Started process 8344
+2026-08-12 07:56:14,253 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-12 10:08:21,308 DEBUG - Starting WinSW in service mode
+2026-08-12 10:08:21,648 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-12 10:08:21,801 INFO  - Started process 13952
+2026-08-12 10:08:21,844 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-12 10:54:35,540 DEBUG - Starting WinSW in service mode
+2026-08-12 10:54:37,495 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-12 10:54:38,882 INFO  - Started process 4808
+2026-08-12 10:54:39,926 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-12 11:04:10,855 DEBUG - Starting WinSW in service mode
+2026-08-12 11:04:12,602 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-12 11:04:13,938 INFO  - Started process 4856
+2026-08-12 11:04:13,969 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-13 13:32:06,774 DEBUG - Starting WinSW in service mode
+2026-08-13 13:32:07,530 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-13 13:32:07,664 INFO  - Started process 2800
+2026-08-13 13:32:07,683 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-13 13:33:29,256 DEBUG - Starting WinSW in service mode
+2026-08-13 13:33:29,990 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-13 13:33:30,116 INFO  - Started process 9304
+2026-08-13 13:33:30,149 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-08-13 14:42:12,385 DEBUG - Starting WinSW in service mode
+2026-08-13 14:42:12,596 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-08-13 14:42:12,675 INFO  - Started process 10004
+2026-08-13 14:42:12,699 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
+2026-09-15 10:13:52,681 DEBUG - Starting WinSW in service mode
+2026-09-15 10:13:53,275 INFO  - Starting C:\Program Files\nodejs\node.exe server.js
+2026-09-15 10:13:53,542 INFO  - Started process 6900
+2026-09-15 10:13:53,587 DEBUG - Forwarding logs of the process System.Diagnostics.Process (node) to WinSW.RollingSizeTimeLogAppender
