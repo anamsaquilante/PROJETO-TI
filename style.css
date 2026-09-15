@@ -40,6 +40,12 @@ body {
 	padding: 22px 14px 64px;
 }
 
+.mini-wrap {
+	max-width: 1000px;
+	margin: 0 auto;
+	padding: 22px 14px 64px;
+}
+
 .top {
 	display: flex;
 	justify-content: space-between;
@@ -283,6 +289,41 @@ input[type="number"]::-webkit-outer-spin-button {
 	color: var(--text-soft);
 	border: 1px solid var(--line);
 }
+
+.tutorial-file,
+.edit-tutorial,
+.delete-tutorial {
+	border-radius: 8px;
+	cursor: pointer;
+	border: 1px;
+	padding: 8px 10px;
+	background: var(--panel-2);
+	border: 1px solid var(--line);
+}
+
+.tutorial-file,
+.edit-tutorial {
+	color: var(--text-soft);
+	text-decoration: none;
+}
+
+.delete-tutorial {
+	color: var(--red);
+}
+
+.tutorial-file:hover {
+	color: var(--blue);
+	border-color: var(--blue);
+	background: var(--blue-dim);
+}
+
+.tutorial-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 16px;
+}
+
 /* -------------- */
 
 .ghost {
@@ -470,12 +511,14 @@ td:has(> .danger-mini) {
 	border: 1px solid var(--line);
 }
 
+.edit-tutorial:hover,
 .mini:hover {
 	color: var(--teal);
 	border-color: rgba(65, 214, 176, 0.55);
 	background: var(--teal-dim);
 }
 
+.delete-tutorial:hover,
 .danger-mini:hover {
 	color: var(--red);
 	border-color: rgba(239, 122, 114, 0.55);
@@ -985,6 +1028,7 @@ td:has(> .danger-mini) {
 	min-width: 260px;
 }
 .status-pill,
+.status-estoque,
 .priority-pill {
 	display: inline-flex;
 	align-items: center;
@@ -993,6 +1037,40 @@ td:has(> .danger-mini) {
 	font-size: 10px;
 	font-family: "JetBrains Mono", monospace;
 }
+
+.status-button {
+	border: 1px solid var(--line);
+	background: var(--panel-2);
+	color: var(--text-soft);
+	border-radius: 8px;
+	padding: 7px 9px;
+	font-family: "Space Grotesk", sans-serif;
+	font-size: 12px;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.status-estoque {
+	border: 1px solid var(--line);
+	background: var(--panel-2);
+	color: var(--text-soft);
+	border-radius: 8px;
+	padding: 7px 9px;
+	font-family: "Space Grotesk", sans-serif;
+	font-size: 12px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.status-button:hover {
+	border-color: var(--amber);
+	background: var(--amber-dim);
+	color: var(--amber);
+}
+
 .status-pendente,
 .priority-media {
 	background: var(--amber-dim);

@@ -9,6 +9,43 @@
 		<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
 		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 		<link href="style.css" rel="stylesheet" />
+		<style>
+			.inline-form {
+				margin-top: 14px;
+				padding-top: 14px;
+				border-top: 1px solid var(--line);
+			}
+			.inline-form[hidden] {
+				display: none;
+			}
+			.form-grid .full {
+				grid-column: 1/-1;
+			}
+			.add-button {
+				display: inline-flex;
+				align-items: center;
+				gap: 7px;
+			}
+			.item-secondary {
+				display: block;
+				color: var(--text-faint);
+				font-size: 11px;
+				margin-top: 4px;
+			}
+			.empty-row {
+				text-align: center !important;
+				color: var(--text-faint);
+				padding: 28px 12px !important;
+			}
+			@media (max-width: 640px) {
+				.form-grid {
+					grid-template-columns: 1fr;
+				}
+				.form-grid .full {
+					grid-column: auto;
+				}
+			}
+		</style>
 	</head>
 	<body data-page="senhas">
 		<div class="app-shell">
@@ -25,12 +62,12 @@
 					<a class="nav-link" href="index.html"><i class="ti ti-layout-dashboard"></i> Visão geral</a>
 					<a class="nav-link active" href="senhas.html"><i class="ti ti-key"></i> Lista de senhas</a>
 					<a class="nav-link" href="notebooks.html"><i class="ti ti-device-laptop"></i> Notebooks</a>
+					<a class="nav-link" href="impressoras.html"><i class="ti ti-printer"></i> Impressoras</a>
 					<a class="nav-link" href="estoque.html"><i class="ti ti-keyboard"></i> Estoque</a>
 					<a class="nav-link" href="compras.html"><i class="ti ti-shopping-cart"></i> Lista de compras</a>
-					<a class="nav-link" href="impressoras.html"><i class="ti ti-printer"></i> Impressoras</a>
+					<a class="nav-link" href="orcamento.html"><i class="ti ti-wallet"></i> Orçamento</a>
 					<a class="nav-link" href="projetos.html"><i class="ti ti-brand-trello"></i> Projetos / Trello</a>
 					<a class="nav-link" href="chamados.html"><i class="ti ti-lifebuoy"></i> Chamados</a>
-					<a class="nav-link" href="orcamento.html"><i class="ti ti-wallet"></i> Orçamento</a>
 					<a class="nav-link" href="tutoriais.html"><i class="ti ti-book-2"></i> Tutoriais internos</a>
 				</nav>
 			</aside>

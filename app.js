@@ -152,14 +152,31 @@ window.undoDelete = async function () {
 	if (lastPurchaseUndo) {
 		const { purchase, gastoId } = lastPurchaseUndo;
 		const d = moduleData();
-		// Remove o gasto gerado pela compra, evitando duplicidade no Orçamento.
-		d.gastos = d.gastos.filter((g) => g.id !== gastoId);
-		// Devolve o item para a Lista de compras, exatamente como estava.
-		if (!d.compras.some((c) => c.id === purchase.id)) d.compras.unshift(purchase);
+
+		d.gastos = Array.isArray(d.gastos) ? d.gastos.filter((gasto) => gasto.id !== gastoId) : [];
+
+		const compraRestaurada = { ...purchase, status: "Pendente" };
+
+		delete compraRestaurada.dataCompraISO;
+
+		const indexExistente = d.compras.findIndex((compra) => compra.id === compraRestaurada.id);
+
+		if (indexExistente >= 0) {
+			d.compras[indexExistente] = compraRestaurada;
+		} else {
+			d.compras.unshift(compraRestaurada);
+		}
+
 		TIHub.save(d);
+
 		lastPurchaseUndo = null;
+
 		renderPurchases();
-		if (document.getElementById("expenseRows")) renderBudget();
+
+		if (document.getElementById("expenseRows") && typeof renderBudget === "function") {
+			renderBudget();
+		}
+
 		toast("Compra desfeita.");
 		return;
 	}
@@ -1043,7 +1060,7 @@ function renderTermos() {
 		<td>${escapeHtml(t.email)}</td>
 		<td>${escapeHtml(termoLabel(t.tipo))}</td>
 		<td><span class="status-pill status-${escapeHtml(t.status)}">${escapeHtml(termoStatusLabel(t.status))}</span></td>
-		<td>${t.arquivoDataUrl ? `<button class="mini" title="Abrir termo em PDF" onclick="abrirTermoPdf('${t.id}')"><i class="ti ti-file-text"></i></button>` : `<span class="badge pending" title="Nenhum PDF anexado a este registro">Sem PDF</span>`}</td>
+		<td>${t.arquivoDataUrl ? `<button class="mini" title="Abrir termo" onclick="abrirTermoPdf('${t.id}')"><i class="ti ti-file-text"></i></button>` : `<span class="badge pending" title="Nenhum PDF anexado a este registro">Sem PDF</span>`}</td>
 		<td><div class="row-actions">
         <button class="mini" title="Editar" onclick="editTermo('${t.id}')"><i class="ti ti-pencil"></i></button>
         <button class="danger-mini" title="Excluir" onclick="deleteTermo('${t.id}')"><i class="ti ti-trash-x"></i></button>
@@ -1427,6 +1444,26 @@ function initPasswords() {
 		f.reset();
 		renderPasswords();
 	});
+	document.getElementById("toggleEmailsForm")?.addEventListener("click", () => {
+		document.getElementById("formEmails").hidden = false;
+		const wasHidden = form.hidden;
+		resetEmailsForm();
+		form.hidden = !wasHidden;
+		if (!form.hidden) form.item.focus();
+	});
+	cancelBtn?.addEventListener("click", resetEmailsForm);
+	document.getElementById("toggleSoftwareForm")?.addEventListener("click", () => {
+		document.getElementById("formSoftware").hidden = false;
+		const wasHidden = form.hidden;
+		resetSoftwareForm();
+		form.hidden = !wasHidden;
+		if (!form.hidden) form.item.focus();
+	});
+	cancelBtn?.addEventListener("click", resetSoftwareForm);
+	document.getElementById("resetEmailsForm")?.addEventListener("click", () => {
+		resetEmailsForm();
+		form.hidden = true;
+	});
 	document.getElementById("cancelEditEmails")?.addEventListener("click", () => {
 		editingEmailsId = null;
 		document.getElementById("formEmails").reset();
@@ -1549,7 +1586,7 @@ function renderEstoque() {
 					return `<tr>
         <td><strong>${TIHub.esc(x.item)}</strong></td>
         <td>${x.quantidade}</td>
-        <td><button class="status-pill status-button ${low ? "status-recusado" : "status-assinado"}" type="button" disabled>${low ? "Baixo" : "Ok"}</button></td>
+        <td><button class="status-pill status-estoque ${low ? "status-recusado" : "status-assinado"}" type="button" disabled>${low ? "Baixo" : "Ok"}</button></td>
         <td><div class="row-actions">
 			<button class="mini" type="button" title="Editar material" data-material-edit="${x.id}"><i class="ti ti-pencil"></i></button>
 			<button class="danger-mini" type="button" title="Excluir material" data-material-delete="${x.id}"><i class="ti ti-trash-x"></i></button>
@@ -1692,30 +1729,27 @@ function renderPurchases() {
 			<div class="model">${TIHub.esc(x.item)}</div>
 			<span class="serial">${TIHub.esc(x.categoria || "Sem categoria")}</span>
 		</td>
-        <td>${TIHub.pill(x.prioridade)}</td>
-        <td>${Number(x.quantidade) || 0}</td>
-        <td>${TIHub.esc(formatModuleDate(x.dataISO || x.data))}</td>
-        <td>${TIHub.esc(x.obs || "—")}</td>
-        <td>
+        <td style= "text-align:center;">${TIHub.pill(x.prioridade)}</td>
+        <td style= "text-align:center;">${Number(x.quantidade) || 0}</td>
+        <td style= "text-align:center;">${TIHub.esc(formatModuleDate(x.dataISO || x.data))}</td>
+        <td style= "text-align:center;">${TIHub.esc(x.obs || "—")}</td>
+        <td style= "text-align:center;">
 			<button
-				class="status-pill status-button ${x.status === "Comprado" ? "status-assinado" : "status-pendente"}" type="button" data-purchase-status="${x.id}"
-				${x.status === "Comprado" ? "disabled" : ""}>${x.status === "Comprado" ? "Comprado" : "Pendente"}</button></td>
-		<td><div class="row-actions">
+				class="status-pill status-button ${x.status === "Comprado" ? "status-assinado" : "status-pendente"}"
+				type="button"
+				data-purchase-status="${x.id}"
+				${x.status === "Comprado" ? "disabled" : ""}>
+				${x.status === "Comprado" ? "Comprado" : "Pendente"}
+			</button>
+		</td>
+		<td style= "text-align:left;"><div class="row-actions">
 			<button class="mini" type="button" title="Editar compra" data-purchase-edit="${x.id}"><i class="ti ti-pencil"></i></button>
 			<button class="danger-mini" type="button" title="Excluir compra" data-purchase-delete="${x.id}"><i class="ti ti-trash-x"></i></button>
 		</div></td>
       </tr>`,
 				)
 				.join("")
-		: `<tr><td class="empty-row" colspan="6">Nenhum item na lista de compras.</td></tr>`;
-}
-
-function addExpenseForPurchase(data, purchase) {
-	/* Integração com a coleção de gastos já utilizada pela aba Orçamento. */
-	const alreadyExists = data.gastos.some((expense) => expense.origemCompraId === purchase.id);
-	if (alreadyExists) return;
-
-	data.gastos.unshift({ id: TIHub.uid("exp"), origemCompraId: purchase.id, descricao: purchase.item, categoria: purchase.categoria || "Compras", quantidade: Number(purchase.quantidade) || 0, valor: Number(purchase.valor) || 0, data: formatModuleDate(purchase.dataCompraISO || purchase.dataISO || purchase.data) });
+		: `<tr><td class="empty-row" colspan="7">Nenhum item na lista de compras.</td></tr>`;
 }
 
 /* Adiciona/edita compras e registra o gasto apenas uma vez ao marcar como comprado. */
@@ -1723,6 +1757,20 @@ function initPurchases() {
 	renderPurchases();
 	const form = document.getElementById("formPurchase");
 	if (!form) return;
+
+	const cancelBtn = document.getElementById("cancelPurchase");
+	const submitBtn = document.getElementById("submitPurchase");
+
+	// Único botão de cancelar/fechar o formulário. O texto muda conforme o
+	// modo (adicionar x editar), em vez de existir um segundo botão só
+	// para "Cancelar edição" (mesmo padrão já usado em Estoque).
+	function resetPurchaseForm() {
+		editingPurchaseId = null;
+		form.reset();
+		form.hidden = true;
+		if (cancelBtn) cancelBtn.textContent = "Cancelar";
+		if (submitBtn) submitBtn.textContent = "Adicionar item";
+	}
 
 	form.addEventListener("submit", (event) => {
 		event.preventDefault();
@@ -1733,41 +1781,24 @@ function initPurchases() {
 		if (editingPurchaseId) {
 			const index = d.compras.findIndex((x) => x.id === editingPurchaseId);
 			if (index >= 0) d.compras[index] = { ...d.compras[index], ...payload };
-			editingPurchaseId = null;
-			document.getElementById("cancelEditPurchase")?.classList.add("hidden");
 		} else {
 			const now = new Date();
 			d.compras.push({ id: TIHub.uid("buy"), ...payload, dataISO: now.toISOString(), data: now.toLocaleDateString("pt-BR"), status: "Pendente" });
 		}
 
 		TIHub.save(d);
-		form.reset();
-		form.hidden = true;
+		resetPurchaseForm();
 		renderPurchases();
 	});
 
 	document.getElementById("togglePurchaseForm")?.addEventListener("click", () => {
-		editingPurchaseId = null;
-		form.reset();
-		document.getElementById("cancelEditPurchase")?.classList.add("hidden");
-		form.hidden = !form.hidden;
+		const wasHidden = form.hidden;
+		resetPurchaseForm();
+		form.hidden = !wasHidden;
 		if (!form.hidden) form.item.focus();
 	});
 
-	document.getElementById("cancelPurchase")?.addEventListener("click", () => {
-		editingPurchaseId = null;
-		form.reset();
-		document.getElementById("cancelEditPurchase")?.classList.add("hidden");
-		form.hidden = true;
-	});
-
-	// Cancelar edição de um item (o botão existia no HTML mas não tinha
-	// nenhum listener, então nunca aparecia nem fazia nada).
-	document.getElementById("cancelEditPurchase")?.addEventListener("click", () => {
-		editingPurchaseId = null;
-		form.reset();
-		document.getElementById("cancelEditPurchase").classList.add("hidden");
-	});
+	cancelBtn?.addEventListener("click", resetPurchaseForm);
 
 	document.addEventListener("click", (event) => {
 		const statusButton = event.target.closest("[data-purchase-status]");
@@ -1808,9 +1839,6 @@ function initPurchases() {
 			return;
 		}
 
-		// Editar item da lista de compras (botão era renderizado mas não
-		// tinha nenhum listener; agora preenche o formulário, igual ao
-		// padrão já usado em impressoras/estoque).
 		const editButton = event.target.closest("[data-purchase-edit]");
 		if (editButton) {
 			const d = moduleData();
@@ -1824,12 +1852,12 @@ function initPurchases() {
 			form.quantidade.value = Number(purchase.quantidade) || 1;
 			form.categoria.value = purchase.categoria || "";
 			form.obs.value = purchase.obs || "";
-			document.getElementById("cancelEditPurchase")?.classList.remove("hidden");
+			if (cancelBtn) cancelBtn.textContent = "Cancelar edição";
+			if (submitBtn) submitBtn.textContent = "Salvar alterações";
 			form.scrollIntoView({ behavior: "smooth", block: "nearest" });
 			return;
 		}
 
-		// Excluir item da lista de compras (idem: botão sem listener).
 		const deleteButton = event.target.closest("[data-purchase-delete]");
 		if (deleteButton) {
 			const d = moduleData();
@@ -1839,16 +1867,12 @@ function initPurchases() {
 			lastDeletedItem = purchase;
 			lastDeletedCollection = "compras";
 			lastDeletedSource = "modulo";
+			lastPurchaseUndo = null;
 
 			d.compras = d.compras.filter((x) => x.id !== purchase.id);
 			TIHub.save(d);
 
-			if (editingPurchaseId === purchase.id) {
-				editingPurchaseId = null;
-				form.reset();
-				form.hidden = true;
-				document.getElementById("cancelEditPurchase")?.classList.add("hidden");
-			}
+			if (editingPurchaseId === purchase.id) resetPurchaseForm();
 
 			renderPurchases();
 			toast("Item excluído da lista.", true);
@@ -2158,15 +2182,78 @@ function renderProjects() {
 function renderTutorials() {
 	const d = moduleData(),
 		el = document.getElementById("tutorialGrid");
-	if (el) el.innerHTML = d.tutoriais.map((x) => `<article class="tutorial-card"><span class="status-pill status-atendimento">${TIHub.esc(x.categoria)}</span><h3>${TIHub.esc(x.titulo)}</h3><p>${TIHub.esc(x.resumo)}</p><footer><span>${TIHub.esc(x.tempo)}</span><span>Procedimento interno</span></footer></article>`).join("");
+	if (el)
+		el.innerHTML = d.tutoriais
+			.map(
+				(x) => `
+	<article class="tutorial-card">
+	<span class="status-pill status-atendimento">${TIHub.esc(x.categoria)}</span>
+		<h3>${TIHub.esc(x.titulo)}</h3>
+		<p>${TIHub.esc(x.descrição)}</p>
+
+		<footer>
+			<div class="tutorial-actions">
+				<thead>
+					<tr>
+						<th><a class="tutorial-file" href="tutoriais.html#${x.id}" title="Abrir tutorial" data-tutorial-open="${x.id}"><i class="ti ti-file"></i></a></th>
+						<th><button class="edit-tutorial" type="button" title="Editar tutorial" data-tutorial-edit="${x.id}"><i class="ti ti-pencil"></i></button></th>
+						<th><button class="delete-tutorial" type="button" title="Excluir tutorial" data-tutorial-delete="${x.id}"><i class="ti ti-trash-x"></i></button></th>						
+					</tr>
+				</thead>
+			</div>
+		</footer>
+	</article>`,
+			)
+			.join("");
 }
 function initTutorials() {
 	renderTutorials();
+	const form = document.getElementById("formTutorial");
+	if (!form) return;
+
+	const cancelBtn = document.getElementById("cancelTutorial");
+	const submitBtn = document.getElementById("submitTutorial");
+
+	function resetTutorialForm() {
+		editingTutorialId = null;
+		form.reset();
+		form.hidden = true;
+		if (cancelBtn) cancelBtn.textContent = "Cancelar";
+		if (submitBtn) submitBtn.textContent = "Adicionar tutorial";
+	}
+
+	form.addEventListener("submit", (event) => {
+		event.preventDefault();
+		const d = moduleData();
+		const payload = { titulo: form.titulo.value.trim(), categoria: form.categoria.value, descrição: form.descrição.value.trim() };
+		if (!payload.titulo || !payload.categoria || !payload.descrição) return;
+
+		if (editingTutorialId) {
+			const index = d.tutoriais.findIndex((x) => x.id === editingTutorialId);
+			if (index >= 0) d.tutoriais[index] = { ...d.tutoriais[index], ...payload };
+		} else {
+			d.tutoriais.unshift({ id: TIHub.uid("tut"), ...payload });
+		}
+
+		TIHub.save(d);
+		resetTutorialForm();
+		renderTutorials();
+	});
+
+	document.getElementById("toggleTutorialForm")?.addEventListener("click", () => {
+		const wasHidden = form.hidden;
+		resetTutorialForm();
+		form.hidden = !wasHidden;
+		if (!form.hidden) form.item.focus();
+	});
+
+	cancelBtn?.addEventListener("click", resetTutorialForm);
+
 	document.getElementById("formTutorial")?.addEventListener("submit", (e) => {
 		e.preventDefault();
 		const d = moduleData(),
 			f = e.target;
-		d.tutoriais.unshift({ id: TIHub.uid("tut"), titulo: f.titulo.value.trim(), categoria: f.categoria.value, tempo: f.tempo.value.trim(), resumo: f.resumo.value.trim() });
+		d.tutoriais.unshift({ id: TIHub.uid("tut"), titulo: f.titulo.value.trim(), categoria: f.categoria.value, descrição: f.descrição.value.trim() });
 		TIHub.save(d);
 		f.reset();
 		renderTutorials();
