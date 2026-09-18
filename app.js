@@ -20,7 +20,7 @@
    18. Orçamento (orcamento.html)
    19. Projetos (projetos.html)
    20. Tutoriais (tutoriais.html)
-   21. Inicialização por página (DOMContentLoaded)
+   21. Inicialização por página (DOMContentLoaded) + sincronização automática
    ========================================================================= */
 
 /* =========================================================================
@@ -82,6 +82,7 @@ const TIHub = (() => {
 	}
 	function save(data) {
 		localStorage.setItem(KEY, JSON.stringify(data));
+		fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), cache: "no-store" }).catch((error) => console.error("Erro ao sincronizar TIHub com o backend compartilhado:", error));
 	}
 	function uid(prefix = "id") {
 		return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -100,6 +101,23 @@ const TIHub = (() => {
 
 function moduleData() {
 	return TIHub.load();
+}
+
+async function syncSharedStateFromServer() {
+	try {
+		const resp = await fetch("/api/data", { cache: "no-store" });
+		if (!resp.ok) return;
+		const data = await resp.json();
+		if (!data || typeof data !== "object" || !Object.keys(data).length) return;
+
+		const notebookState = { notebooks: Array.isArray(data.notebooks) ? data.notebooks : [], suporte: Array.isArray(data.suporte) ? data.suporte : [], alunos: Array.isArray(data.alunos) ? data.alunos : [], termos: Array.isArray(data.termos) ? data.termos : [] };
+		localStorage.setItem("monitoramento-ti", JSON.stringify(notebookState));
+
+		const moduleState = { emails: Array.isArray(data.emails) ? data.emails : [], softwares: Array.isArray(data.softwares) ? data.softwares : [], estoque: Array.isArray(data.estoque) ? data.estoque : [], impressoras: Array.isArray(data.impressoras) ? data.impressoras : [], chamados: Array.isArray(data.chamados) ? data.chamados : [], compras: Array.isArray(data.compras) ? data.compras : [], gastos: Array.isArray(data.gastos) ? data.gastos : [], projetos: Array.isArray(data.projetos) ? data.projetos : [], tutoriais: Array.isArray(data.tutoriais) ? data.tutoriais : [] };
+		localStorage.setItem("ti-hub-modulos-v1", JSON.stringify(moduleState));
+	} catch (error) {
+		console.error("Erro ao sincronizar dados do servidor compartilhado:", error);
+	}
 }
 
 /* =========================================================================
@@ -462,10 +480,19 @@ function ordenarPorData(lista, campo, ordem) {
 
 // Sincroniza campos do formulário de registro de notebooks
 function syncRegistroFields() {
-	const registro = document.getElementById("nb-registro").value;
-	const tipoDev = document.getElementById("nb-tipo-devolucao").value;
-	document.getElementById("field-devolucao-tipo").classList.toggle("hidden", registro !== "devolucao");
-	document.getElementById("field-defeito").classList.toggle("hidden", !(registro === "devolucao" && tipoDev === "com-defeito"));
+	const registroEl = document.getElementById("nb-registro");
+	const tipoDevEl = document.getElementById("nb-tipo-devolucao");
+	const campoDevolucaoEl = document.getElementById("field-devolucao-tipo");
+	const campoDefeitoEl = document.getElementById("field-defeito");
+
+	// Só executa em notebooks.html - nas demais páginas esses elementos
+	// não existem, então não há nada a sincronizar.
+	if (!registroEl || !tipoDevEl || !campoDevolucaoEl || !campoDefeitoEl) return;
+
+	const registro = registroEl.value;
+	const tipoDev = tipoDevEl.value;
+	campoDevolucaoEl.classList.toggle("hidden", registro !== "devolucao");
+	campoDefeitoEl.classList.toggle("hidden", !(registro === "devolucao" && tipoDev === "com-defeito"));
 }
 
 // Renderiza estatísticas de notebooks, suporte e alunos
@@ -473,12 +500,12 @@ function renderStats() {
 	const emUso = state.notebooks.filter((n) => n.categoria === "em-uso").length;
 	const devolvido = state.notebooks.filter((n) => n.categoria === "devolvido").length;
 	const danificados = state.notebooks.filter((n) => n.categoria === "danificado").length;
-	document.getElementById("s-uso").textContent = emUso;
-	document.getElementById("s-devolvido").textContent = devolvido;
-	document.getElementById("s-defeito").textContent = danificados;
-	document.getElementById("countNb").textContent = emUso;
-	document.getElementById("countSup").textContent = state.suporte.length;
-	document.getElementById("countAlu").textContent = state.alunos.length;
+	document.getElementById("s-uso") && (document.getElementById("s-uso").textContent = emUso);
+	document.getElementById("s-devolvido") && (document.getElementById("s-devolvido").textContent = devolvido);
+	document.getElementById("s-defeito") && (document.getElementById("s-defeito").textContent = danificados);
+	document.getElementById("countNb") && (document.getElementById("countNb").textContent = emUso);
+	document.getElementById("countSup") && (document.getElementById("countSup").textContent = state.suporte.length);
+	document.getElementById("countAlu") && (document.getElementById("countAlu").textContent = state.alunos.length);
 	const termoCount = document.getElementById("countTermos");
 	if (termoCount) termoCount.textContent = state.termos.filter((t) => t.status === "pendente").length;
 }
@@ -490,6 +517,9 @@ function renderStats() {
 
 // NOTEBOOKS COLABORADORES
 function renderGrouped() {
+	// Só existe em notebooks.html.
+	if (!document.getElementById("bodyEmUso")) return;
+
 	const emUso = ordenarPorData(
 		state.notebooks.filter((n) => n.categoria === "em-uso"),
 		"aquisicao",
@@ -567,12 +597,15 @@ function renderGrouped() {
 	atualizarDropdownsFiltro("em-uso");
 	atualizarDropdownsFiltro("devolvido");
 	atualizarDropdownsFiltro("danificado");
+
+	renderStats();
 }
 
 // SUPORTE
 function renderSuporte() {
 	const body = document.getElementById("bodySuporte");
 	const empty = document.getElementById("emptySup");
+	if (!body || !empty) return;
 	if (!state.suporte.length) {
 		body.innerHTML = "";
 		empty.style.display = "block";
@@ -600,6 +633,7 @@ function renderSuporte() {
 function renderAlunos() {
 	const body = document.getElementById("bodyAlunos");
 	const empty = document.getElementById("emptyAlu");
+	if (!body || !empty) return;
 	if (!state.alunos.length) {
 		body.innerHTML = "";
 		empty.style.display = "block";
@@ -652,6 +686,10 @@ async function salvarTudo() {
 }
 
 // CARREGAR DADOS
+// IMPORTANTE: esta função só deve ser chamada na página de Notebooks
+// (ela é acionada dentro de initNotebooks()). Ela mexe em elementos
+// exclusivos de notebooks.html, como #nb-registro - chamá-la em outra
+// página derruba a inicialização daquela página inteira.
 async function carregarDados() {
 	try {
 		const resp = await fetch("/api/data", { cache: "no-store" });
@@ -2261,14 +2299,79 @@ function initTutorials() {
 }
 
 /* =========================================================================
-   21. INICIALIZAÇÃO POR PÁGINA
+   21. INICIALIZAÇÃO POR PÁGINA + SINCRONIZAÇÃO AUTOMÁTICA
    -------------------------------------------------------------------------
    Cada página só liga os eventos que lhe dizem respeito, com base no
    atributo data-page do <body>. É isto que garante que o código de
    notebooks.html (antigo script.js) não tente rodar em elementos que não
    existem nas demais páginas, e vice-versa.
+
+   ATENÇÃO: carregarDados() (que preenche state.notebooks/suporte/alunos/
+   termos e mexe em elementos exclusivos de notebooks.html) NÃO é mais
+   chamada aqui incondicionalmente - antes disso quebrava a inicialização
+   de todas as outras páginas (erro de JS ao tentar ler um elemento que
+   não existe), impedindo que initEstoque()/initPurchases()/initPrinters()
+   etc. rodassem. Ela continua sendo chamada normalmente dentro de
+   initNotebooks(), só na página de Notebooks.
 	========================================================================= */
-document.addEventListener("DOMContentLoaded", () => {
+
+// Re-renderiza a página atual a partir dos dados (já atualizados em
+// localStorage) sem religar formulários nem resetar campos em edição.
+function renderPaginaAtual() {
+	const p = document.body.dataset.page;
+	if (p === "dashboard") renderDashboard();
+	if (p === "senhas") renderPasswords();
+	if (p === "notebooks") {
+		renderGrouped();
+		renderSuporte();
+		renderAlunos();
+		renderListaModelos();
+		renderListaSetores();
+		if (typeof renderTermos === "function") renderTermos();
+	}
+	if (p === "estoque") renderEstoque();
+	if (p === "compras") renderPurchases();
+	if (p === "impressoras") renderPrinters();
+	if (p === "chamados") renderTickets();
+	if (p === "orcamento") renderBudget();
+	if (p === "projetos") renderProjects();
+	if (p === "tutoriais") renderTutorials();
+}
+
+// Busca o estado mais recente salvo por QUALQUER usuário no servidor
+// compartilhado (192.168.20.29:5050 / "ti-hub/") e atualiza a tela sem
+// precisar recarregar a página.
+async function sincronizarComServidor() {
+	await syncSharedStateFromServer();
+
+	// Na página de Notebooks o estado fica na variável `state` (não é lido
+	// direto do localStorage no render), então precisa ser recarregado.
+	if (document.body.dataset.page === "notebooks") {
+		const ls = JSON.parse(localStorage.getItem("monitoramento-ti") || "null");
+		if (ls) {
+			state.notebooks = Array.isArray(ls.notebooks) ? ls.notebooks : [];
+			state.suporte = Array.isArray(ls.suporte) ? ls.suporte : [];
+			state.alunos = Array.isArray(ls.alunos) ? ls.alunos : [];
+			state.termos = Array.isArray(ls.termos) ? ls.termos : [];
+		}
+	}
+
+	renderPaginaAtual();
+}
+
+// A cada 5s, busca o que outros usuários salvaram e atualiza a tela -
+// assim qualquer pessoa acessando 192.168.20.29:5050 (ou "ti-hub/") vê,
+// em poucos segundos, as mudanças feitas por qualquer outra pessoa, sem
+// precisar dar F5.
+const INTERVALO_SINCRONIZACAO_MS = 5000;
+function iniciarSincronizacaoAutomatica() {
+	setInterval(() => {
+		sincronizarComServidor().catch((error) => console.error("Erro na sincronização automática:", error));
+	}, INTERVALO_SINCRONIZACAO_MS);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+	await syncSharedStateFromServer();
 	const p = document.body.dataset.page;
 	if (p === "dashboard") renderDashboard();
 	if (p === "senhas") initPasswords();
@@ -2286,4 +2389,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	if (p === "orcamento") initBudget();
 	if (p === "projetos") renderProjects();
 	if (p === "tutoriais") initTutorials();
+
+	iniciarSincronizacaoAutomatica();
 });
