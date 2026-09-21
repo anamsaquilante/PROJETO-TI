@@ -26,6 +26,14 @@
 /* =========================================================================
    1. TI HUB - módulos adicionais (armazenamento em localStorage)
 	========================================================================= */
+// Conta quantas gravações (POST /api/data) estão em andamento neste
+// momento. Enquanto houver pelo menos uma, a sincronização automática
+// (seção 21) NÃO busca dados do servidor - senão ela pode pegar uma
+// resposta antiga (de antes do salvamento terminar) e sobrescrever o
+// registro recém-criado/editado, fazendo-o "sumir" sozinho poucos
+// segundos depois.
+let escritasPendentesNoServidor = 0;
+
 const TIHub = (() => {
 	const KEY = "ti-hub-modulos-v1";
 	const defaults = {
