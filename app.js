@@ -82,7 +82,12 @@ const TIHub = (() => {
 	}
 	function save(data) {
 		localStorage.setItem(KEY, JSON.stringify(data));
-		fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), cache: "no-store" }).catch((error) => console.error("Erro ao sincronizar TIHub com o backend compartilhado:", error));
+		escritasPendentesNoServidor++;
+		fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), cache: "no-store" })
+			.catch((error) => console.error("Erro ao sincronizar TIHub com o backend compartilhado:", error))
+			.finally(() => {
+				escritasPendentesNoServidor = Math.max(0, escritasPendentesNoServidor - 1);
+			});
 	}
 	function uid(prefix = "id") {
 		return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -678,10 +683,13 @@ function saveNotebookRecord(payload) {
 async function salvarTudo() {
 	const payload = { notebooks: state.notebooks, suporte: state.suporte, alunos: state.alunos, termos: state.termos };
 	localStorage.setItem("monitoramento-ti", JSON.stringify(payload));
+	escritasPendentesNoServidor++;
 	try {
 		await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
 	} catch (e) {
 		console.error(e);
+	} finally {
+		escritasPendentesNoServidor = Math.max(0, escritasPendentesNoServidor - 1);
 	}
 }
 
@@ -2342,6 +2350,12 @@ function renderPaginaAtual() {
 // compartilhado (192.168.20.29:5050 / "ti-hub/") e atualiza a tela sem
 // precisar recarregar a página.
 async function sincronizarComServidor() {
+	// Se algum salvamento ainda está em andamento (POST não terminou),
+	// não busca dados do servidor agora: a resposta ainda seria a de
+	// ANTES desse salvamento e apagaria da tela o que acabou de ser
+	// adicionado/editado. O próximo ciclo (5s depois) já pega o dado certo.
+	if (escritasPendentesNoServidor > 0) return;
+
 	await syncSharedStateFromServer();
 
 	// Na página de Notebooks o estado fica na variável `state` (não é lido
