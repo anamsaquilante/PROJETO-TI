@@ -1,5 +1,6 @@
 /* =========================================================================
    Resumo das seções abaixo:
+   0. Login
    1. TIHub                       -> armazenamento dos módulos (localStorage)
    2. Toast / desfazer exclusão   -> mecanismo único usado por todas as páginas
    3. Estado de edição dos módulos (senhas, estoque, compras, impressoras)
@@ -22,6 +23,94 @@
    20. Tutoriais (tutoriais.html)
    21. Inicialização por página (DOMContentLoaded) + sincronização automática
    ========================================================================= */
+
+/* =========================================================================
+   0. AUTENTICAÇÃO / SESSÃO
+   -------------------------------------------------------------------------
+   Roda antes de tudo, no início do DOMContentLoaded (ver seção 21). Toda
+   página, exceto login.html (data-page="login"), exige sessão válida.
+   A proteção REAL está no server.js: /api/data e /api/users respondem 401
+   sem sessão. O que tem aqui é só experiência do usuário - redirecionar
+   pro login quando necessário e mostrar nome do usuário + botão Sair no
+   menu lateral (injetado via JS, sem precisar editar cada página .html).
+	========================================================================= */
+let usuarioLogado = null; // { usuario, nome, role } - preenchido por protegerPagina()
+
+// Envelope de fetch para chamadas autenticadas: se o servidor responder
+// 401 (sessão inválida/expirada), redireciona pro login automaticamente
+// em vez de deixar a página quebrada silenciosamente.
+async function apiFetch(url, options) {
+	const resp = await fetch(url, { ...options, credentials: "same-origin" });
+	if (resp.status === 401 && document.body.dataset.page !== "login") {
+		redirecionarParaLogin();
+	}
+	return resp;
+}
+
+function redirecionarParaLogin() {
+	const destino = encodeURIComponent(window.location.pathname.split("/").pop() || "index.html");
+	window.location.href = `login.html?next=${destino}`;
+}
+
+async function checarSessao() {
+	try {
+		const resp = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
+		if (!resp.ok) return null;
+		const data = await resp.json();
+		return data && data.authenticated ? data : null;
+	} catch (error) {
+		console.error("Erro ao checar sessão:", error);
+		return null;
+	}
+}
+
+// Acrescenta, no fim do menu lateral, o link "Usuários" (só para admin) e
+// "Sair (nome)". Fica num único lugar (app.js) em vez de duplicar HTML em
+// cada uma das páginas.
+function montarAreaDoUsuario() {
+	const nav = document.querySelector(".sidebar-nav");
+	if (!nav || !usuarioLogado) return;
+
+	if (usuarioLogado.role === "admin" && !nav.querySelector('[href="usuarios.html"]')) {
+		const linkUsuarios = document.createElement("a");
+		linkUsuarios.className = "nav-link" + (document.body.dataset.page === "usuarios" ? " active" : "");
+		linkUsuarios.href = "usuarios.html";
+		linkUsuarios.innerHTML = '<i class="ti ti-users"></i> Usuários';
+		nav.appendChild(linkUsuarios);
+	}
+
+	if (!nav.querySelector("#navSair")) {
+		const sair = document.createElement("a");
+		sair.className = "nav-link";
+		sair.href = "#";
+		sair.id = "navSair";
+		sair.innerHTML = `<i class="ti ti-logout"></i> Sair (${TIHub.esc(usuarioLogado.nome || usuarioLogado.usuario)})`;
+		sair.addEventListener("click", async (e) => {
+			e.preventDefault();
+			try {
+				await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+			} catch (error) {
+				console.error("Erro ao sair:", error);
+			}
+			window.location.href = "login.html";
+		});
+		nav.appendChild(sair);
+	}
+}
+
+// Chamada no início do DOMContentLoaded. Retorna true se a página pode
+// seguir carregando normalmente, false se o usuário foi redirecionado
+// pro login (nesse caso nada mais deve rodar nesta página).
+async function protegerPagina() {
+	const sessao = await checarSessao();
+	if (!sessao) {
+		redirecionarParaLogin();
+		return false;
+	}
+	usuarioLogado = sessao;
+	montarAreaDoUsuario();
+	return true;
+}
 
 /* =========================================================================
    1. TI HUB - módulos adicionais (armazenamento em localStorage)
@@ -63,6 +152,7 @@ const TIHub = (() => {
 			{ id: "c1", item: "Adaptadores USB-C", prioridade: "Alta", autor: "Rafael", data: "24/08/2026", obs: "Estoque próximo do mínimo", status: "Pendente" },
 			{ id: "c2", item: "Headsets para suporte", prioridade: "Média", autor: "Mariana", data: "24/08/2026", obs: "Para novas posições", status: "Pendente" },
 		],
+		orcamentos: [], // preenchido com a tabela de 2026 na primeira abertura do Orçamento
 		gastos: [
 			{ id: "g1", descricao: "Licenças Microsoft 365", categoria: "Software", valor: 8900, data: "15/08/2026" },
 			{ id: "g2", descricao: "Renovação de firewall", categoria: "Infraestrutura", valor: 12500, data: "02/08/2026" },
@@ -91,7 +181,7 @@ const TIHub = (() => {
 	function save(data) {
 		localStorage.setItem(KEY, JSON.stringify(data));
 		escritasPendentesNoServidor++;
-		fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), cache: "no-store" })
+		apiFetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data), cache: "no-store" })
 			.catch((error) => console.error("Erro ao sincronizar TIHub com o backend compartilhado:", error))
 			.finally(() => {
 				escritasPendentesNoServidor = Math.max(0, escritasPendentesNoServidor - 1);
@@ -126,7 +216,7 @@ async function syncSharedStateFromServer() {
 		const notebookState = { notebooks: Array.isArray(data.notebooks) ? data.notebooks : [], suporte: Array.isArray(data.suporte) ? data.suporte : [], alunos: Array.isArray(data.alunos) ? data.alunos : [], termos: Array.isArray(data.termos) ? data.termos : [] };
 		localStorage.setItem("monitoramento-ti", JSON.stringify(notebookState));
 
-		const moduleState = { emails: Array.isArray(data.emails) ? data.emails : [], softwares: Array.isArray(data.softwares) ? data.softwares : [], estoque: Array.isArray(data.estoque) ? data.estoque : [], impressoras: Array.isArray(data.impressoras) ? data.impressoras : [], chamados: Array.isArray(data.chamados) ? data.chamados : [], compras: Array.isArray(data.compras) ? data.compras : [], gastos: Array.isArray(data.gastos) ? data.gastos : [], projetos: Array.isArray(data.projetos) ? data.projetos : [], tutoriais: Array.isArray(data.tutoriais) ? data.tutoriais : [] };
+		const moduleState = { emails: Array.isArray(data.emails) ? data.emails : [], softwares: Array.isArray(data.softwares) ? data.softwares : [], estoque: Array.isArray(data.estoque) ? data.estoque : [], impressoras: Array.isArray(data.impressoras) ? data.impressoras : [], chamados: Array.isArray(data.chamados) ? data.chamados : [], compras: Array.isArray(data.compras) ? data.compras : [], gastos: Array.isArray(data.gastos) ? data.gastos : [], orcamentos: Array.isArray(data.orcamentos) ? data.orcamentos : [], projetos: Array.isArray(data.projetos) ? data.projetos : [], tutoriais: Array.isArray(data.tutoriais) ? data.tutoriais : [] };
 		localStorage.setItem("ti-hub-modulos-v1", JSON.stringify(moduleState));
 	} catch (error) {
 		console.error("Erro ao sincronizar dados do servidor compartilhado:", error);
@@ -238,6 +328,7 @@ window.undoDelete = async function () {
 		renderEstoque();
 		renderPurchases();
 		renderPrinters();
+		if (document.getElementById("annualBudgetTable")) renderBudget();
 	}
 
 	toast("Exclusão desfeita.");
@@ -693,7 +784,7 @@ async function salvarTudo() {
 	localStorage.setItem("monitoramento-ti", JSON.stringify(payload));
 	escritasPendentesNoServidor++;
 	try {
-		await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
+		await apiFetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
 	} catch (e) {
 		console.error(e);
 	} finally {
@@ -2186,48 +2277,768 @@ function renderTickets() {
 
 /* =========================================================================
    18. ORÇAMENTO (orcamento.html)
+   -------------------------------------------------------------------------
+   Modelo de dados (dentro do mesmo armazenamento dos demais módulos,
+   "ti-hub-modulos-v1", sincronizado com o servidor via /api/data):
+
+     d.orcamentos -> UM registro por Categoria + Subcategoria + Ano:
+                     { id, ano, categoria, subcategoria, valores: [12 números] }
+                     (valores[0] = janeiro ... valores[11] = dezembro)
+     d.gastos     -> lançamentos reais (já existia; a lista de compras
+                     também grava aqui ao marcar um item como "Comprado").
+                     Campos deste módulo: categoria, subcategoria, ano, mes
+                     (0-11, escolhido no formulário), dataISO, data, obs.
+                     Gastos antigos (sem subcategoria/mes) continuam contando
+                     no total do ano e aparecem como "Sem classificação".
+
+   REGRAS:
+     - SALDO = ORÇAMENTO - GASTO.
+     - Nada de TOTAL é gravado: mês, subcategoria, categoria e total geral
+       são sempre somados em CENTAVOS (inteiros) na hora, para não acumular
+       erro de arredondamento.
+     - Em 2026 os dados iniciais vêm da tabela enviada (orcDadosIniciais2026)
+       e só são gravados se ainda não existir nenhum orçamento no sistema.
 	========================================================================= */
-function renderBudget() {
-	const d = moduleData(),
-		body = document.getElementById("expenseRows"),
-		total = Number(document.getElementById("budgetTotal")?.dataset.total || 100000),
-		spent = d.gastos.reduce((a, x) => a + x.valor, 0),
-		balance = total - spent;
-	document.getElementById("budgetSpent") && (document.getElementById("budgetSpent").textContent = spent.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
-	document.getElementById("budgetBalance") && (document.getElementById("budgetBalance").textContent = balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
-	document.getElementById("budgetBar") && (document.getElementById("budgetBar").style.width = Math.min(100, (spent / total) * 100) + "%");
-	if (body) body.innerHTML = d.gastos.map((x) => `<tr><td><strong>${TIHub.esc(x.descricao)}</strong></td><td>${TIHub.esc(x.categoria)}</td><td>${TIHub.esc(x.data)}</td><td>${x.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td></tr>`).join("");
+const MESES_ABREV = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const MESES_NOME = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+// Código usado em #categoryFilter/#planningYear (fixo no HTML) <-> nome da categoria salvo nos dados.
+const ORC_CODIGOS = [
+	{ code: "GERAL", nome: "Geral" },
+	{ code: "SOFTWARE", nome: "Software" },
+	{ code: "SUPORTE", nome: "Suporte Técnico/Manutenção" },
+	{ code: "MELHORIAS", nome: "Plano de Melhorias" },
+	{ code: "PROTHEUS", nome: "Revitalização Protheus" },
+	{ code: "TREINAMENTOS", nome: "Treinamentos" },
+];
+const orcCodigoParaNome = (code) => (ORC_CODIGOS.find((c) => c.code === code) || {}).nome || null;
+const orcNomeParaCodigo = (nome) => (ORC_CODIGOS.find((c) => c.nome === nome) || {}).code || null;
+
+// Estado da tela (só em memória; não vai para o servidor)
+let orcAno = null; // ano selecionado em #yearSelector
+let editingGastoId = null; // gasto em edição (null = novo gasto)
+const orcExpandidos = new Set(); // subcategorias com o detalhamento aberto na tabela anual
+
+const orcEl = (id) => document.getElementById(id);
+const orcCentavos = (v) => Math.round((Number(v) || 0) * 100);
+const orcSoma = (lista) => lista.reduce((a, b) => a + b, 0);
+const orcBRL = (centavos) => (centavos / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const orcEscAttr = (v) => TIHub.esc(v).replace(/"/g, "&quot;");
+const orcFmtCel = (centavos) => (centavos === 0 ? "-" : orcBRL(centavos));
+const orcFmtPct = (p) => p.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "%";
+const orcFmtData = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : "—");
+
+function orcHojeISO() {
+	const t = new Date();
+	return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 }
-function initBudget() {
+
+/* Dados iniciais: tabela de orçamento 2026 (valores exatamente como na tabela enviada).
+   R(v) = mesmo valor em todos os meses | M({mes: valor}) = só nos meses citados
+   (0 = janeiro ... 11 = dezembro) | F(ini, fim, v) = valor de um mês a outro. */
+function orcDadosIniciais2026() {
+	const R = (v) => Array(12).fill(v);
+	const M = (obj) => {
+		const a = Array(12).fill(0);
+		Object.entries(obj).forEach(([mes, v]) => (a[Number(mes)] = v));
+		return a;
+	};
+	const F = (ini, fim, v) => Array.from({ length: 12 }, (_, i) => (i >= ini && i <= fim ? v : 0));
+
+	const linhas = [
+		["Geral", "Locação de Equipamentos", R(6372.19)],
+		["Geral", "Certificado Digital", M({ 3: 350 })],
+		["Geral", "Internet", R(4063.79)],
+		["Geral", "Telefonia", R(483.09)],
+		["Geral", "Material Informática", R(4000)],
+
+		["Software", "Adobe", R(1264.66)],
+		["Software", "Antivírus", M({ 5: 40000 })],
+		["Software", "AnyDesk", M({ 4: 2019.76 })],
+		["Software", "Vitalwerks (No-IP)", R(0)],
+		["Software", "Agente de IA", R(150)],
+		["Software", "Docusign", M({ 1: 9499.36, 6: 9499.36 })],
+
+		["Suporte Técnico/Manutenção", "Manutenções", R(5000)],
+		["Suporte Técnico/Manutenção", "Consultoria TOTVS (Altria)", R(2308.57)],
+		["Suporte Técnico/Manutenção", "Jose Cassio Prevedel", R(1423.84)],
+		["Suporte Técnico/Manutenção", "Totvs - despesa IAAS", R(6272.6)],
+		["Suporte Técnico/Manutenção", "Totvs - Ambiente dedicado", R(972.48)],
+		["Suporte Técnico/Manutenção", "Totvs", R(18531.95)],
+
+		["Plano de Melhorias", "Substituição Ramais por IP", M({ 4: 10000 })],
+		["Plano de Melhorias", "2ª fase da melhoria de rede", M({ 4: 70000 })],
+		["Plano de Melhorias", "Instalação espaço compartilhado/coworking e padronização auditório", M({ 3: 50000 })],
+		["Plano de Melhorias", "Aquisição Tablets", M({ 5: 22000 })],
+		["Plano de Melhorias", "Aumento de usuários Docusign", M({ 1: 6000, 6: 6000 })],
+		["Plano de Melhorias", "Aquisição notebooks", M({ 3: 67812, 4: 165952.8 })],
+		["Plano de Melhorias", "Troca de monitores", M({ 2: 40000 })],
+
+		["Revitalização Protheus", "Compras", F(3, 6, 10257.93)],
+		["Revitalização Protheus", "Financeiro", F(3, 6, 4750.6)],
+		["Revitalização Protheus", "Ativo fixo", F(4, 7, 5885.7)],
+		["Revitalização Protheus", "RH", F(6, 11, 9977.65)],
+		["Revitalização Protheus", "Contábil e fiscal", F(6, 11, 13453.02)],
+
+		["Treinamentos", "Treinamento para equipe de TI", M({ 3: 12000 })],
+		["Treinamentos", "Consultoria de certificação de documentos", M({ 3: 4000 })],
+	];
+
+	return linhas.map(([categoria, subcategoria, valores], i) => ({ id: `orc-2026-${String(i + 1).padStart(2, "0")}`, ano: 2026, categoria, subcategoria, valores }));
+}
+
+/* Lê a data/mês de um gasto. Prioriza os campos explícitos (ano/mes) usados pelo
+   formulário desta página; senão deriva de dataISO ou de "dd/mm/aaaa" (gastos
+   antigos, ex.: gerados pela Lista de compras ao marcar um item como comprado). */
+function orcDataDoGasto(g) {
+	if (Number.isInteger(g.ano) && Number.isInteger(g.mes)) {
+		const iso = g.dataISO && /^\d{4}-\d{2}-\d{2}/.test(g.dataISO) ? g.dataISO.slice(0, 10) : `${g.ano}-${String(g.mes + 1).padStart(2, "0")}-01`;
+		return { iso, ano: g.ano, mes: g.mes };
+	}
+	let iso = "";
+	if (typeof g.dataISO === "string" && /^\d{4}-\d{2}-\d{2}/.test(g.dataISO)) {
+		iso = g.dataISO.slice(0, 10);
+	} else if (typeof g.data === "string") {
+		const m = g.data.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+		if (m) iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+	}
+	if (!iso) return null;
+	return { iso, ano: Number(iso.slice(0, 4)), mes: Number(iso.slice(5, 7)) - 1 };
+}
+
+/* Categorias e subcategorias existentes (em qualquer ano), na ordem em que
+   aparecem nos dados — usado nos selects de gasto e no planejamento. */
+function orcEstruturaGlobal(d) {
+	const mapa = new Map();
+	(d.orcamentos || []).forEach((r) => {
+		if (!mapa.has(r.categoria)) mapa.set(r.categoria, []);
+		const lista = mapa.get(r.categoria);
+		if (!lista.includes(r.subcategoria)) lista.push(r.subcategoria);
+	});
+	return mapa;
+}
+
+/* Calcula TUDO de um ano (em centavos): por subcategoria, categoria e geral. */
+function orcAgregar(d, ano) {
+	const grupos = [];
+	const porNome = new Map();
+	const porChave = new Map();
+
+	(d.orcamentos || [])
+		.filter((r) => Number(r.ano) === ano)
+		.forEach((r) => {
+			let g = porNome.get(r.categoria);
+			if (!g) {
+				g = { nome: r.categoria, subs: [], orc: Array(12).fill(0), gasto: Array(12).fill(0) };
+				porNome.set(r.categoria, g);
+				grupos.push(g);
+			}
+			const valores = Array.isArray(r.valores) ? r.valores : [];
+			const s = { id: r.id, nome: r.subcategoria, orc: Array.from({ length: 12 }, (_, i) => orcCentavos(valores[i])), gasto: Array(12).fill(0) };
+			g.subs.push(s);
+			porChave.set(`${r.categoria}||${r.subcategoria}`, s);
+		});
+
+	const sem = { gasto: Array(12).fill(0), itens: 0 }; // gastos que não casam com nenhuma subcategoria do ano
+	(d.gastos || []).forEach((g) => {
+		const dt = orcDataDoGasto(g);
+		if (!dt || dt.ano !== ano) return;
+		const s = porChave.get(`${g.categoria || ""}||${g.subcategoria || ""}`);
+		const c = orcCentavos(g.valor);
+		if (s) s.gasto[dt.mes] += c;
+		else {
+			sem.gasto[dt.mes] += c;
+			sem.itens++;
+		}
+	});
+
+	const tOrc = Array(12).fill(0);
+	const tGasto = Array(12).fill(0);
+	grupos.forEach((g) => {
+		g.subs.forEach((s) =>
+			s.orc.forEach((v, i) => {
+				g.orc[i] += v;
+				g.gasto[i] += s.gasto[i];
+			}),
+		);
+		g.orc.forEach((v, i) => {
+			tOrc[i] += v;
+			tGasto[i] += g.gasto[i];
+		});
+	});
+	sem.gasto.forEach((v, i) => (tGasto[i] += v));
+
+	return { grupos, sem, tOrc, tGasto };
+}
+
+function orcPercentual(orc, gasto) {
+	if (orc > 0) return (gasto / orc) * 100;
+	return gasto > 0 ? 100 : 0;
+}
+
+/* Recria as <option> de um select só quando o conteúdo mudou (a sincronização
+   automática chama renderBudget a cada 5s e não pode "resetar" o que o
+   usuário está escolhendo). Retorna true se recriou. */
+function orcPreencherSelect(el, html, sig) {
+	if (!el || el.dataset.sig === sig) return false;
+	const atual = el.value;
+	el.innerHTML = html;
+	el.dataset.sig = sig;
+	if ([...el.options].some((o) => o.value === atual)) el.value = atual;
+	return true;
+}
+
+function orcSincronizarSeletorAno(d) {
+	const anoAtual = new Date().getFullYear();
+	const anos = [...new Set([2026, 2027, 2028, anoAtual, ...d.orcamentos.map((r) => Number(r.ano))])].filter(Number.isFinite).sort((a, b) => a - b);
+	const html = anos.map((a) => `<option value="${a}">${a}</option>`).join("");
+	orcPreencherSelect(orcEl("yearSelector"), html, anos.join(","));
+	return anos;
+}
+
+function orcSincronizarSeletorPlanejamento(d) {
+	const maiorAno = Math.max(2026, ...d.orcamentos.map((r) => Number(r.ano)));
+	const anos = [maiorAno + 1, maiorAno + 2, maiorAno + 3];
+	const html = anos.map((a) => `<option value="${a}">${a}</option>`).join("");
+	orcPreencherSelect(orcEl("planningYear"), html, anos.join(","));
+}
+
+/* ---------- RESUMO DO MÊS ATUAL (sempre o mês real, independente do #yearSelector) ---------- */
+function orcRenderResumoMesAtual(d, filtroCategoria) {
+	const hoje = new Date();
+	const anoReal = hoje.getFullYear();
+	const mesReal = hoje.getMonth();
+	const agg = orcAgregar(d, anoReal);
+
+	let orcArr = agg.tOrc,
+		gastoArr = agg.tGasto,
+		rotulo = "Total planejado";
+	if (filtroCategoria) {
+		const nome = orcCodigoParaNome(filtroCategoria);
+		const g = agg.grupos.find((x) => x.nome === nome);
+		orcArr = g ? g.orc : Array(12).fill(0);
+		gastoArr = g ? g.gasto : Array(12).fill(0);
+		rotulo = nome;
+	}
+
+	const orc = orcArr[mesReal];
+	const gasto = gastoArr[mesReal];
+	const saldo = orc - gasto;
+	const pct = orcPercentual(orc, gasto);
+	const estourado = gasto > orc;
+
+	orcEl("currentMonthDisplay").textContent = `${MESES_NOME[mesReal]}/${anoReal}`;
+	orcEl("monthBudgetValue").textContent = orcBRL(orc);
+	orcEl("monthBudgetSub").textContent = rotulo;
+	orcEl("monthSpentValue").textContent = orcBRL(gasto);
+	orcEl("monthSpentCard").classList.toggle("over-budget", estourado);
+	orcEl("monthBalanceValue").textContent = orcBRL(saldo);
+	orcEl("monthBalanceCard").classList.toggle("over-budget", saldo < 0);
+	orcEl("monthBalanceSub").textContent = estourado ? "Orçamento ultrapassado" : "Disponível";
+	orcEl("monthPercentValue").textContent = orc === 0 && gasto > 0 ? "sem orçamento" : orcFmtPct(pct);
+	orcEl("monthBudgetBar").style.width = Math.min(100, pct) + "%";
+	orcEl("monthBudgetBar").classList.toggle("over", estourado);
+}
+
+/* ---------- TABELA ANUAL ---------- */
+function orcLinhaCategoria(g) {
+	const tds = g.orc.map((v) => `<td>${orcFmtCel(v)}</td>`).join("");
+	return `<tr class="category-row"><td>${TIHub.esc(g.nome.toUpperCase())}</td>${tds}<td>${orcFmtCel(orcSoma(g.orc))}</td></tr>`;
+}
+
+function orcLinhaSubcategoria(g, s) {
+	const chave = `${g.nome}||${s.nome}`;
+	const aberto = orcExpandidos.has(chave);
+	const tds = s.orc.map((v, i) => `<td class="month-cell ${s.gasto[i] > 0 ? "has-expense" : ""}">${orcFmtCel(v)}</td>`).join("");
+	return `<tr class="subcategory-row" data-toggle="${orcEscAttr(chave)}"><td><i class="ti ti-chevron-right expand-icon ${aberto ? "expanded" : ""}"></i> ${TIHub.esc(s.nome)}</td>${tds}<td>${orcFmtCel(orcSoma(s.orc))}</td></tr>`;
+}
+
+function orcLinhaDetalhe(g, s) {
+	const chave = `${g.nome}||${s.nome}`;
+	const aberto = orcExpandidos.has(chave);
+	const totalOrc = orcSoma(s.orc);
+	const totalGasto = orcSoma(s.gasto);
+	const saldo = totalOrc - totalGasto;
+	return `<tr class="detail-row ${aberto ? "show" : ""}" data-detail="${orcEscAttr(chave)}"><td colspan="14"><div class="detail-content">
+		<div class="detail-stat"><div class="detail-stat-label">Orçamento (ano)</div><div class="detail-stat-value">${orcBRL(totalOrc)}</div></div>
+		<div class="detail-stat"><div class="detail-stat-label">Gasto (ano)</div><div class="detail-stat-value">${orcBRL(totalGasto)}</div></div>
+		<div class="detail-stat"><div class="detail-stat-label">Saldo (ano)</div><div class="detail-stat-value" style="${saldo < 0 ? "color:var(--red)" : ""}">${orcBRL(saldo)}</div></div>
+	</div></td></tr>`;
+}
+
+function orcLinhaTotalGeral(agg) {
+	const tds = agg.tOrc.map((v) => `<td>${orcFmtCel(v)}</td>`).join("");
+	return `<tr class="category-row" style="border-top:2px solid var(--line)"><td>TOTAL GERAL</td>${tds}<td>${orcFmtCel(orcSoma(agg.tOrc))}</td></tr>`;
+}
+
+function orcRenderTabelaAnual(agg, filtroCategoria) {
+	let html = "";
+	agg.grupos.forEach((g) => {
+		const codigo = orcNomeParaCodigo(g.nome);
+		if (filtroCategoria && codigo !== filtroCategoria) return;
+		html += orcLinhaCategoria(g);
+		g.subs.forEach((s) => {
+			html += orcLinhaSubcategoria(g, s) + orcLinhaDetalhe(g, s);
+		});
+	});
+	if (!filtroCategoria) html += orcLinhaTotalGeral(agg);
+	orcEl("annualBudgetTable").innerHTML = html || `<tr><td class="empty-row" colspan="14">Nenhum orçamento cadastrado para este ano.</td></tr>`;
+}
+
+/* ---------- CARDS DE TOTAIS GERAIS (rodapé) ---------- */
+function orcRenderTotaisGerais(agg, filtroCategoria) {
+	let orcArr = agg.tOrc,
+		gastoArr = agg.tGasto;
+	if (filtroCategoria) {
+		const nome = orcCodigoParaNome(filtroCategoria);
+		const g = agg.grupos.find((x) => x.nome === nome);
+		orcArr = g ? g.orc : Array(12).fill(0);
+		gastoArr = g ? g.gasto : Array(12).fill(0);
+	}
+	const totalOrc = orcSoma(orcArr);
+	const totalGasto = orcSoma(gastoArr);
+	orcEl("totalBudgetDisplay").textContent = orcBRL(totalOrc);
+	orcEl("budgetTotal").dataset.total = String(totalOrc / 100);
+	orcEl("budgetSpent").textContent = orcBRL(totalGasto);
+	orcEl("budgetBalance").textContent = orcBRL(totalOrc - totalGasto);
+	orcEl("currentYearDisplay").textContent = String(orcAno);
+	orcEl("budgetBar").style.width = Math.min(100, orcPercentual(totalOrc, totalGasto)) + "%";
+}
+
+/* ---------- FORMULÁRIO DE GASTOS ---------- */
+function orcRenderExpenseSelects(d) {
+	const estrutura = orcEstruturaGlobal(d);
+	const htmlCat = `<option value="">Selecione…</option>` + [...estrutura.keys()].map((c) => `<option value="${orcEscAttr(c)}">${TIHub.esc(c)}</option>`).join("");
+	if (orcPreencherSelect(orcEl("expenseCategory"), htmlCat, htmlCat)) orcAtualizarSubsExpense("");
+}
+
+function orcAtualizarSubsExpense(subPreferida) {
+	const d = moduleData();
+	const subs = orcEstruturaGlobal(d).get(orcEl("expenseCategory").value) || [];
+	const sel = orcEl("expenseSubcategory");
+	const atual = subPreferida !== undefined ? subPreferida : sel.value;
+	sel.innerHTML = `<option value="">Selecione…</option>` + subs.map((s) => `<option value="${orcEscAttr(s)}">${TIHub.esc(s)}</option>`).join("");
+	sel.value = subs.includes(atual) ? atual : "";
+}
+
+function orcRenderExpenseRows(d) {
+	const busca = (orcEl("expenseSearch").value || "").toLowerCase().trim();
+	const lista = d.gastos
+		.map((g) => ({ g, dt: orcDataDoGasto(g) }))
+		.filter((x) => x.dt && x.dt.ano === orcAno)
+		.filter(({ g }) => !busca || [g.categoria, g.subcategoria, g.descricao, g.obs].join(" ").toLowerCase().includes(busca))
+		.sort((a, b) => b.dt.iso.localeCompare(a.dt.iso));
+
+	if (!lista.length) {
+		orcEl("expenseRows").innerHTML = `<tr><td class="empty-row" colspan="7">Nenhum gasto lançado.</td></tr>`;
+		return;
+	}
+
+	orcEl("expenseRows").innerHTML = lista
+		.map(
+			({ g, dt }) => `<tr>
+			<td><span class="date">${orcFmtData(dt.iso)}</span></td>
+			<td>${TIHub.esc(g.categoria || "—")}</td>
+			<td>${g.subcategoria ? TIHub.esc(g.subcategoria) : '<span class="status-pill status-pendente">Sem classificação</span>'}</td>
+			<td>${MESES_NOME[dt.mes]}</td>
+			<td>${TIHub.esc(g.descricao || "—")}</td>
+			<td><strong>${orcBRL(orcCentavos(g.valor))}</strong></td>
+			<td><div class="row-actions">
+				<button class="mini" type="button" title="Editar gasto" data-expense-edit="${orcEscAttr(g.id)}"><i class="ti ti-pencil"></i></button>
+				<button class="danger-mini" type="button" title="Excluir gasto" data-expense-delete="${orcEscAttr(g.id)}"><i class="ti ti-trash-x"></i></button>
+			</div></td>
+		</tr>`,
+		)
+		.join("");
+}
+
+function orcLimparFormExpense() {
+	editingGastoId = null;
+	const form = orcEl("formExpense");
+	form.reset();
+	form.data.value = orcHojeISO();
+	orcAtualizarSubsExpense("");
+	const btn = form.querySelector('button[type="submit"]');
+	if (btn) btn.textContent = "Registrar Gasto";
+}
+
+/* ---------- PLANEJAMENTO DO PRÓXIMO ANO ---------- */
+// Só é (re)desenhado ao abrir a aba ou trocar de ano, nunca pela sincronização
+// automática de 5s — assim não apaga valores que o usuário está digitando.
+function orcRenderPlanejamento() {
+	const d = moduleData();
+	const ano = Number(orcEl("planningYear").value);
+	if (!Number.isInteger(ano)) return;
+
+	const estrutura = orcEstruturaGlobal(d);
+	if (!estrutura.size) {
+		orcEl("planningContainer").innerHTML = `<p class="empty">Nenhuma estrutura de categorias cadastrada ainda.</p>`;
+		return;
+	}
+
+	const doAno = new Map();
+	d.orcamentos.filter((r) => Number(r.ano) === ano).forEach((r) => doAno.set(`${r.categoria}||${r.subcategoria}`, r.valores));
+
+	const anosAnteriores = [...new Set(d.orcamentos.map((r) => Number(r.ano)))].filter((a) => a < ano);
+	const anoBase = anosAnteriores.length ? Math.max(...anosAnteriores) : null;
+	const doAnoBase = new Map();
+	if (!doAno.size && anoBase !== null) {
+		d.orcamentos.filter((r) => Number(r.ano) === anoBase).forEach((r) => doAnoBase.set(`${r.categoria}||${r.subcategoria}`, r.valores));
+	}
+
+	let html = "";
+	estrutura.forEach((subs, categoria) => {
+		html += `<h3 style="margin:20px 0 8px;font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--teal)">${TIHub.esc(categoria.toUpperCase())}</h3>`;
+		subs.forEach((sub) => {
+			const chave = `${categoria}||${sub}`;
+			const valores = doAno.get(chave) || doAnoBase.get(chave) || Array(12).fill(0);
+			html += `<div class="model" style="margin:12px 0 6px">${TIHub.esc(sub)}</div>`;
+			html += `<div class="planning-grid" data-plan-item="${orcEscAttr(chave)}">${MESES_NOME.map((nome, i) => `<div class="planning-month"><label>${nome}</label><input type="number" min="0" step="0.01" data-plan-mes="${i}" value="${Number(valores[i]) || 0}" /></div>`).join("")}</div>`;
+		});
+	});
+	orcEl("planningContainer").innerHTML = html;
+}
+
+function orcSalvarPlanejamento() {
+	const d = moduleData();
+	d.orcamentos = Array.isArray(d.orcamentos) ? d.orcamentos : [];
+	const ano = Number(orcEl("planningYear").value);
+	if (!Number.isInteger(ano)) return toast("Selecione o ano do planejamento.");
+
+	const blocos = [...document.querySelectorAll("[data-plan-item]")];
+	if (!blocos.length) return toast("Não há itens para planejar.");
+
+	let invalido = false;
+	const registros = blocos.map((bloco) => {
+		const [categoria, subcategoria] = bloco.dataset.planItem.split("||");
+		const valores = Array(12).fill(0);
+		bloco.querySelectorAll("[data-plan-mes]").forEach((inp) => {
+			const v = inp.value === "" ? 0 : Number(inp.value);
+			if (!Number.isFinite(v) || v < 0) invalido = true;
+			valores[Number(inp.dataset.planMes)] = Math.round(v * 100) / 100;
+		});
+		return { categoria, subcategoria, valores };
+	});
+	if (invalido) return toast("Informe valores numéricos maiores ou iguais a zero.");
+
+	registros.forEach(({ categoria, subcategoria, valores }) => {
+		const existente = d.orcamentos.find((r) => Number(r.ano) === ano && r.categoria === categoria && r.subcategoria === subcategoria);
+		if (existente) existente.valores = valores;
+		else d.orcamentos.push({ id: TIHub.uid("orc"), ano, categoria, subcategoria, valores });
+	});
+
+	TIHub.save(d); // só cria/atualiza orçamento: nenhum gasto é alterado
+	orcAno = ano;
+	toast(`Planejamento ${ano} salvo.`);
 	renderBudget();
-	document.getElementById("formExpense")?.addEventListener("submit", (e) => {
-		e.preventDefault();
-		const d = moduleData(),
-			f = e.target;
-		d.gastos.unshift({ id: TIHub.uid("exp"), descricao: f.descricao.value.trim(), categoria: f.categoria.value.trim(), valor: Number(f.valor.value), data: f.data.value ? new Date(f.data.value + "T00:00:00").toLocaleDateString("pt-BR") : new Date().toLocaleDateString("pt-BR") });
+	orcMostrarVisao("annual");
+}
+
+/* ---------- ALTERNÂNCIA DE VISÃO (Anual / Gastos / Planejamento) ---------- */
+function orcMostrarVisao(view) {
+	document.querySelectorAll(".view-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+	document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
+	const idPorView = { annual: "annualView", expenses: "expensesView", planning: "planningView" };
+	orcEl(idPorView[view])?.classList.add("active");
+	if (view === "planning") orcRenderPlanejamento();
+}
+
+/* ---------- RENDER PRINCIPAL ---------- */
+function renderBudget() {
+	if (!orcEl("annualBudgetTable")) return; // só existe em orcamento.html
+
+	const d = moduleData();
+	d.orcamentos = Array.isArray(d.orcamentos) ? d.orcamentos : [];
+	d.gastos = Array.isArray(d.gastos) ? d.gastos : [];
+
+	const anos = orcSincronizarSeletorAno(d);
+	orcAno = Number(orcEl("yearSelector").value);
+	if (!anos.includes(orcAno)) {
+		orcAno = anos[anos.length - 1];
+		orcEl("yearSelector").value = String(orcAno);
+	}
+
+	const filtroCategoria = orcEl("categoryFilter").value;
+	const agg = orcAgregar(d, orcAno);
+
+	orcRenderResumoMesAtual(d, filtroCategoria);
+	orcRenderTabelaAnual(agg, filtroCategoria);
+	orcRenderTotaisGerais(agg, filtroCategoria);
+	orcRenderExpenseSelects(d);
+	orcRenderExpenseRows(d);
+	orcSincronizarSeletorPlanejamento(d);
+}
+
+function initBudget() {
+	// Primeira vez: grava a tabela de 2026 como orçamento inicial do sistema.
+	const d0 = moduleData();
+	if (!Array.isArray(d0.orcamentos) || !d0.orcamentos.length) {
+		d0.orcamentos = orcDadosIniciais2026();
+		TIHub.save(d0);
+	}
+
+	orcLimparFormExpense();
+	renderBudget();
+
+	orcEl("yearSelector").addEventListener("change", renderBudget);
+	orcEl("categoryFilter").addEventListener("change", renderBudget);
+	orcEl("expenseSearch").addEventListener("input", () => orcRenderExpenseRows(moduleData()));
+	orcEl("expenseCategory").addEventListener("change", () => orcAtualizarSubsExpense(""));
+	orcEl("planningYear").addEventListener("change", orcRenderPlanejamento);
+	orcEl("savePlanningBtn").addEventListener("click", orcSalvarPlanejamento);
+
+	document.querySelectorAll(".view-btn").forEach((btn) => btn.addEventListener("click", () => orcMostrarVisao(btn.dataset.view)));
+
+	orcEl("formExpense").addEventListener("reset", () => {
+		// O botão "Limpar" (type=reset) também cancela uma edição em andamento.
+		editingGastoId = null;
+		setTimeout(() => {
+			orcEl("formExpense").data.value = orcHojeISO();
+			orcAtualizarSubsExpense("");
+			const btn = orcEl("formExpense").querySelector('button[type="submit"]');
+			if (btn) btn.textContent = "Registrar Gasto";
+		}, 0);
+	});
+
+	orcEl("formExpense").addEventListener("submit", (event) => {
+		event.preventDefault();
+		const d = moduleData();
+		d.orcamentos = Array.isArray(d.orcamentos) ? d.orcamentos : [];
+		d.gastos = Array.isArray(d.gastos) ? d.gastos : [];
+		const form = event.target;
+
+		const categoria = orcEl("expenseCategory").value;
+		const subcategoria = orcEl("expenseSubcategory").value;
+		const mes = Number(form.mes.value);
+		const dataISO = form.data.value;
+		const descricao = form.descricao.value.trim();
+		const valorTxt = form.valor.value;
+		const valor = Number(valorTxt);
+		const obs = form.observacao.value.trim();
+
+		if (!categoria || !subcategoria) return toast("Selecione a categoria e a subcategoria.");
+		if (!dataISO) return toast("Informe a data do gasto.");
+		if (!descricao) return toast("Informe a descrição.");
+		if (valorTxt === "" || !Number.isFinite(valor) || valor < 0) return toast("Informe um valor válido.");
+
+		const ano = Number(dataISO.slice(0, 4));
+		if (!d.orcamentos.some((r) => Number(r.ano) === ano && r.categoria === categoria && r.subcategoria === subcategoria)) {
+			return toast(`Não há orçamento de "${subcategoria}" em ${ano}. Planeje esse ano primeiro.`);
+		}
+
+		const campos = { categoria, subcategoria, ano, mes, dataISO, data: orcFmtData(dataISO), descricao, valor: Math.round(valor * 100) / 100, obs };
+		const editando = Boolean(editingGastoId);
+		if (editando) {
+			const idx = d.gastos.findIndex((g) => g.id === editingGastoId);
+			if (idx >= 0) d.gastos[idx] = { ...d.gastos[idx], ...campos };
+		} else {
+			d.gastos.unshift({ id: TIHub.uid("exp"), ...campos });
+		}
 		TIHub.save(d);
-		f.reset();
+
+		orcAno = ano;
+		orcLimparFormExpense();
 		renderBudget();
+		orcEl("yearSelector").value = String(ano);
+		toast(editando ? "Gasto atualizado." : "Gasto registrado.");
+	});
+
+	// ----- cliques delegados: expandir subcategoria, editar/excluir gasto -----
+	document.addEventListener("click", (event) => {
+		const linha = event.target.closest(".subcategory-row");
+		if (linha && linha.dataset.toggle) {
+			const chave = linha.dataset.toggle;
+			const abrindo = !orcExpandidos.has(chave);
+			if (abrindo) orcExpandidos.add(chave);
+			else orcExpandidos.delete(chave);
+			linha.querySelector(".expand-icon")?.classList.toggle("expanded", abrindo);
+			document.querySelector(`.detail-row[data-detail="${CSS.escape(chave)}"]`)?.classList.toggle("show", abrindo);
+			return;
+		}
+
+		const editar = event.target.closest("[data-expense-edit]");
+		if (editar) {
+			const d = moduleData();
+			const g = d.gastos.find((x) => x.id === editar.dataset.expenseEdit);
+			if (!g) return;
+			const dt = orcDataDoGasto(g);
+			editingGastoId = g.id;
+			const form = orcEl("formExpense");
+			orcEl("expenseCategory").value = g.categoria || "";
+			orcAtualizarSubsExpense(g.subcategoria || "");
+			form.mes.value = String(dt ? dt.mes : 0);
+			form.data.value = dt ? dt.iso : orcHojeISO();
+			form.descricao.value = g.descricao || "";
+			form.valor.value = Number(g.valor) || 0;
+			form.observacao.value = g.obs || "";
+			const btn = form.querySelector('button[type="submit"]');
+			if (btn) btn.textContent = "Salvar alterações";
+			orcMostrarVisao("expenses");
+			form.scrollIntoView({ behavior: "smooth", block: "start" });
+			return;
+		}
+
+		const excluir = event.target.closest("[data-expense-delete]");
+		if (excluir) {
+			const d = moduleData();
+			const g = d.gastos.find((x) => x.id === excluir.dataset.expenseDelete);
+			if (!g) return;
+
+			// Mesmo mecanismo unificado de "excluir com desfazer" (seção 2)
+			lastDeletedItem = { ...g };
+			lastDeletedCollection = "gastos";
+			lastDeletedSource = "modulo";
+			lastPurchaseUndo = null;
+
+			d.gastos = d.gastos.filter((x) => x.id !== g.id);
+			TIHub.save(d);
+			if (editingGastoId === g.id) orcLimparFormExpense();
+			renderBudget();
+			toast("Gasto excluído.", true);
+		}
 	});
 }
 
 /* =========================================================================
    19. PROJETOS (projetos.html)
 	========================================================================= */
-function renderProjects() {
-	const d = moduleData(),
-		el = document.getElementById("kanban");
+async function renderProjects() {
+	const el = document.getElementById("kanban");
 	if (!el) return;
-	const cols = ["Backlog", "Em andamento", "Em validação", "Concluído"];
-	el.innerHTML = cols
-		.map(
-			(c) =>
-				`<section class="kanban-col"><h3>${c}<span>${d.projetos.filter((x) => x.coluna === c).length}</span></h3>${d.projetos
-					.filter((x) => x.coluna === c)
-					.map((x) => `<article class="kanban-card"><strong>${TIHub.esc(x.titulo)}</strong><p>${TIHub.esc(x.detalhe)}</p><footer><span>${TIHub.esc(x.responsavel)}</span><span>Trello</span></footer></article>`)
-					.join("")}</section>`,
-		)
-		.join("");
+
+	// Mensagem enquanto os cards do Trello são buscados.
+	el.innerHTML = `
+		<section class="kanban-col">
+			<h3>Carregando<span>...</span></h3>
+			<article class="kanban-card">
+				<strong>Buscando dados do Trello...</strong>
+				<p>Aguarde alguns segundos.</p>
+			</article>
+		</section>
+	`;
+
+	try {
+		// Chama o endpoint que você adicionou no server.js.
+		const resposta = await fetch("/api/trello");
+
+		if (!resposta.ok) {
+			const erro = await resposta.json().catch(() => ({}));
+			throw new Error(erro.error || "Não foi possível consultar o Trello.");
+		}
+
+		const dados = await resposta.json();
+		const listas = Array.isArray(dados.lists) ? dados.lists : [];
+		const cards = Array.isArray(dados.cards) ? dados.cards : [];
+
+		if (listas.length === 0) {
+			el.innerHTML = `
+				<section class="kanban-col">
+					<h3>Sem listas<span>0</span></h3>
+					<article class="kanban-card">
+						<strong>Quadro vazio</strong>
+						<p>O quadro do Trello não possui listas abertas.</p>
+					</article>
+				</section>
+			`;
+			return;
+		}
+
+		// Agrupa os cards pelo ID da lista a que pertencem.
+		const cardsPorLista = {};
+		for (const card of cards) {
+			if (!cardsPorLista[card.idList]) {
+				cardsPorLista[card.idList] = [];
+			}
+			cardsPorLista[card.idList].push(card);
+		}
+
+		// Cada lista do Trello vira uma coluna no TI Hub.
+		el.innerHTML = listas
+			.map((lista) => {
+				const cardsDaLista = cardsPorLista[lista.id] || [];
+
+				return `
+					<section class="kanban-col">
+						<h3>
+							${TIHub.esc(lista.name)}
+							<span>${cardsDaLista.length}</span>
+						</h3>
+
+						${
+							cardsDaLista.length
+								? cardsDaLista
+										.map(
+											(card) => `
+												<article class="kanban-card">
+													<strong>${TIHub.esc(card.name)}</strong>
+													<p>${TIHub.esc(card.desc || "Sem descrição.")}</p>
+													<footer>
+														<span>Trello</span>
+														<a
+															href="${TIHub.esc(card.url)}"
+															target="_blank"
+															rel="noopener noreferrer"
+															title="Abrir card no Trello"
+														>
+															Abrir
+														</a>
+													</footer>
+												</article>
+											`,
+										)
+										.join("")
+								: `
+									<article class="kanban-card">
+										<p>Nenhum card nesta lista.</p>
+									</article>
+								`
+						}
+					</section>
+				`;
+			})
+			.join("");
+	} catch (erro) {
+		console.error("Erro na integração com Trello:", erro);
+
+		// Mantém seu quadro antigo funcionando caso a API ainda não esteja configurada.
+		const d = moduleData();
+		const cols = ["Backlog", "Em andamento", "Em validação", "Concluído"];
+
+		el.innerHTML = `
+			<div class="integration-note">
+				<h3>Não foi possível carregar o Trello</h3>
+				<p>${TIHub.esc(erro.message)}</p>
+				<p>Exibindo os dados locais como alternativa.</p>
+			</div>
+			${cols
+				.map(
+					(coluna) => `
+						<section class="kanban-col">
+							<h3>
+								${coluna}
+								<span>${d.projetos.filter((item) => item.coluna === coluna).length}</span>
+							</h3>
+							${d.projetos
+								.filter((item) => item.coluna === coluna)
+								.map(
+									(item) => `
+										<article class="kanban-card">
+											<strong>${TIHub.esc(item.titulo)}</strong>
+											<p>${TIHub.esc(item.detalhe)}</p>
+											<footer>
+												<span>${TIHub.esc(item.responsavel)}</span>
+												<span>Local</span>
+											</footer>
+										</article>
+									`,
+								)
+								.join("")}
+						</section>
+					`,
+				)
+				.join("")}
+		`;
+	}
 }
 
 /* =========================================================================
@@ -2315,6 +3126,222 @@ function initTutorials() {
 }
 
 /* =========================================================================
+   21b. LOGIN (login.html)
+	========================================================================= */
+function initLogin() {
+	// Se a sessão já for válida, não faz sentido mostrar a tela de novo.
+	checarSessao().then((sessao) => {
+		if (sessao) {
+			const params = new URLSearchParams(window.location.search);
+			window.location.href = params.get("next") || "index.html";
+		}
+	});
+
+	const form = document.getElementById("formLogin");
+	if (!form) return;
+
+	const erroEl = document.getElementById("loginErro");
+	const botao = document.getElementById("btnEntrar");
+	const campoSenha = document.getElementById("login-senha");
+	const botaoOlho = document.getElementById("toggleSenha");
+
+	botaoOlho?.addEventListener("click", () => {
+		const mostrando = campoSenha.type === "text";
+		campoSenha.type = mostrando ? "password" : "text";
+		botaoOlho.innerHTML = mostrando ? '<i class="ti ti-eye"></i>' : '<i class="ti ti-eye-closed"></i>';
+	});
+
+	form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		erroEl.textContent = "";
+		erroEl.classList.add("hidden");
+
+		const usuario = document.getElementById("login-usuario").value.trim();
+		const senha = campoSenha.value;
+		if (!usuario || !senha) {
+			erroEl.textContent = "Preencha usuário e senha.";
+			erroEl.classList.remove("hidden");
+			return;
+		}
+
+		botao.disabled = true;
+		botao.classList.add("loading");
+		const textoOriginal = botao.textContent;
+		botao.textContent = "Entrando...";
+
+		try {
+			const resp = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usuario, senha }), credentials: "same-origin" });
+			const data = await resp.json().catch(() => ({}));
+
+			if (!resp.ok) {
+				erroEl.textContent = data.error || "Não foi possível entrar. Tente novamente.";
+				erroEl.classList.remove("hidden");
+				return;
+			}
+
+			const params = new URLSearchParams(window.location.search);
+			window.location.href = params.get("next") || "index.html";
+		} catch (error) {
+			console.error("Erro no login:", error);
+			erroEl.textContent = "Não foi possível conectar ao servidor. Tente novamente.";
+			erroEl.classList.remove("hidden");
+		} finally {
+			botao.disabled = false;
+			botao.classList.remove("loading");
+			botao.textContent = textoOriginal;
+		}
+	});
+}
+
+/* =========================================================================
+   21c. USUÁRIOS (usuarios.html) - somente para administradores
+	========================================================================= */
+let editingUsuarioLogin = null;
+
+async function carregarUsuarios() {
+	try {
+		const resp = await apiFetch("/api/users", { cache: "no-store" });
+		if (!resp.ok) return [];
+		const data = await resp.json();
+		return Array.isArray(data.usuarios) ? data.usuarios : [];
+	} catch (error) {
+		console.error("Erro ao carregar usuários:", error);
+		return [];
+	}
+}
+
+function papelLabel(role) {
+	return role === "admin" ? "Administrador" : "Técnico";
+}
+
+async function renderUsuarios() {
+	const body = document.getElementById("bodyUsuarios");
+	if (!body) return;
+	const usuarios = await carregarUsuarios();
+
+	body.innerHTML = usuarios.length
+		? usuarios
+				.map(
+					(u) => `
+		<tr>
+			<td><strong>${TIHub.esc(u.nome)}</strong><br><span class="serial">${TIHub.esc(u.usuario)}</span></td>
+			<td>${TIHub.esc(papelLabel(u.role))}</td>
+			<td><span class="status-pill ${u.ativo ? "status-assinado" : "status-recusado"}">${u.ativo ? "Ativo" : "Bloqueado"}</span></td>
+			<td><div class="row-actions">
+				<button class="mini" type="button" title="Editar" data-usuario-edit="${TIHub.esc(u.usuario)}"><i class="ti ti-pencil"></i></button>
+				<button class="mini" type="button" title="${u.ativo ? "Bloquear" : "Desbloquear"}" data-usuario-toggle="${TIHub.esc(u.usuario)}"><i class="ti ti-${u.ativo ? "lock" : "lock-open"}"></i></button>
+				<button class="danger-mini" type="button" title="Excluir" data-usuario-delete="${TIHub.esc(u.usuario)}"><i class="ti ti-trash-x"></i></button>
+			</div></td>
+		</tr>`,
+				)
+				.join("")
+		: `<tr><td class="empty-row" colspan="4">Nenhum usuário cadastrado.</td></tr>`;
+}
+
+function initUsuarios() {
+	// Proteção de UX: quem não é admin nem vê a tela. A proteção real
+	// (impedir ler/gravar usuários) já está garantida no server.js.
+	if (!usuarioLogado || usuarioLogado.role !== "admin") {
+		const wrap = document.querySelector(".wrap");
+		if (wrap) wrap.innerHTML = '<div class="panel"><p>Acesso restrito a administradores.</p></div>';
+		return;
+	}
+
+	renderUsuarios();
+
+	const form = document.getElementById("formUsuario");
+	if (!form) return;
+
+	const campoUsuario = document.getElementById("usuario-usuario");
+	const cancelBtn = document.getElementById("cancelEditUsuario");
+	const submitBtn = document.getElementById("submitUsuario");
+
+	function resetForm() {
+		editingUsuarioLogin = null;
+		form.reset();
+		campoUsuario.disabled = false;
+		if (cancelBtn) cancelBtn.classList.add("hidden");
+		if (submitBtn) submitBtn.textContent = "Adicionar usuário";
+	}
+
+	form.addEventListener("submit", async (e) => {
+		e.preventDefault();
+		const payload = { usuario: campoUsuario.value.trim(), nome: document.getElementById("usuario-nome").value.trim(), senha: document.getElementById("usuario-senha").value, role: document.getElementById("usuario-role").value };
+
+		if (!editingUsuarioLogin && !payload.senha) return toast("Informe uma senha para o novo usuário.");
+
+		try {
+			const resp = editingUsuarioLogin ? await apiFetch(`/api/users/${encodeURIComponent(editingUsuarioLogin)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }) : await apiFetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+
+			const data = await resp.json().catch(() => ({}));
+			if (!resp.ok) return toast(data.error || "Não foi possível salvar o usuário.");
+
+			resetForm();
+			renderUsuarios();
+			toast("Usuário salvo.");
+		} catch (error) {
+			console.error("Erro ao salvar usuário:", error);
+			toast("Não foi possível salvar o usuário.");
+		}
+	});
+
+	cancelBtn?.addEventListener("click", resetForm);
+
+	document.addEventListener("click", async (event) => {
+		const editBtn = event.target.closest("[data-usuario-edit]");
+		if (editBtn) {
+			const usuarios = await carregarUsuarios();
+			const alvo = usuarios.find((u) => u.usuario === editBtn.dataset.usuarioEdit);
+			if (!alvo) return;
+			editingUsuarioLogin = alvo.usuario;
+			campoUsuario.value = alvo.usuario;
+			campoUsuario.disabled = true; // login do usuário não muda na edição
+			document.getElementById("usuario-nome").value = alvo.nome;
+			document.getElementById("usuario-senha").value = "";
+			document.getElementById("usuario-role").value = alvo.role;
+			if (cancelBtn) cancelBtn.classList.remove("hidden");
+			if (submitBtn) submitBtn.textContent = "Salvar alterações";
+			form.scrollIntoView({ behavior: "smooth", block: "start" });
+			return;
+		}
+
+		const toggleBtn = event.target.closest("[data-usuario-toggle]");
+		if (toggleBtn) {
+			const usuarios = await carregarUsuarios();
+			const alvo = usuarios.find((u) => u.usuario === toggleBtn.dataset.usuarioToggle);
+			if (!alvo) return;
+			try {
+				const resp = await apiFetch(`/api/users/${encodeURIComponent(alvo.usuario)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ativo: !alvo.ativo }) });
+				const data = await resp.json().catch(() => ({}));
+				if (!resp.ok) return toast(data.error || "Não foi possível alterar o status.");
+				renderUsuarios();
+				toast(alvo.ativo ? "Usuário bloqueado." : "Usuário desbloqueado.");
+			} catch (error) {
+				console.error("Erro ao bloquear/desbloquear usuário:", error);
+				toast("Não foi possível alterar o status.");
+			}
+			return;
+		}
+
+		const deleteBtn = event.target.closest("[data-usuario-delete]");
+		if (deleteBtn) {
+			if (!window.confirm(`Excluir o usuário "${deleteBtn.dataset.usuarioDelete}"? Essa ação não pode ser desfeita.`)) return;
+			try {
+				const resp = await apiFetch(`/api/users/${encodeURIComponent(deleteBtn.dataset.usuarioDelete)}`, { method: "DELETE" });
+				const data = await resp.json().catch(() => ({}));
+				if (!resp.ok) return toast(data.error || "Não foi possível excluir o usuário.");
+				if (editingUsuarioLogin === deleteBtn.dataset.usuarioDelete) resetForm();
+				renderUsuarios();
+				toast("Usuário excluído.");
+			} catch (error) {
+				console.error("Erro ao excluir usuário:", error);
+				toast("Não foi possível excluir o usuário.");
+			}
+		}
+	});
+}
+
+/* =========================================================================
    21. INICIALIZAÇÃO POR PÁGINA + SINCRONIZAÇÃO AUTOMÁTICA
    -------------------------------------------------------------------------
    Cada página só liga os eventos que lhe dizem respeito, com base no
@@ -2352,6 +3379,7 @@ function renderPaginaAtual() {
 	if (p === "orcamento") renderBudget();
 	if (p === "projetos") renderProjects();
 	if (p === "tutoriais") renderTutorials();
+	if (p === "usuarios") renderUsuarios();
 }
 
 // Busca o estado mais recente salvo por QUALQUER usuário no servidor
@@ -2387,12 +3415,31 @@ async function sincronizarComServidor() {
 // precisar dar F5.
 const INTERVALO_SINCRONIZACAO_MS = 5000;
 function iniciarSincronizacaoAutomatica() {
+	// A página Projetos já consulta o Trello ao ser aberta.
+	// Não atualiza automaticamente para não apagar e recriar
+	// as colunas/cards a cada 5 segundos.
+	if (document.body.dataset.page === "projetos") {
+		return;
+	}
+
 	setInterval(() => {
-		sincronizarComServidor().catch((error) => console.error("Erro na sincronização automática:", error));
+		sincronizarComServidor().catch((error) => {
+			console.error("Erro na sincronização automática:", error);
+		});
 	}, INTERVALO_SINCRONIZACAO_MS);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+	// login.html não exige sessão (é justamente onde ela é criada) e não
+	// usa nada do resto do sistema (dados compartilhados, sincronização).
+	if (document.body.dataset.page === "login") {
+		initLogin();
+		return;
+	}
+
+	const autenticado = await protegerPagina();
+	if (!autenticado) return; // já foi redirecionado pro login
+
 	await syncSharedStateFromServer();
 	const p = document.body.dataset.page;
 	if (p === "dashboard") renderDashboard();
@@ -2411,6 +3458,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 	if (p === "orcamento") initBudget();
 	if (p === "projetos") renderProjects();
 	if (p === "tutoriais") initTutorials();
+	if (p === "usuarios") initUsuarios();
 
 	iniciarSincronizacaoAutomatica();
 });

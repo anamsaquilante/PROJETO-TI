@@ -9,12 +9,286 @@
 		<link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
 		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 		<link href="style.css" rel="stylesheet" />
+		<style>
+			/* Estilos específicos para a nova área de orçamento */
+			.budget-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				gap: 16px;
+				margin-bottom: 20px;
+				flex-wrap: wrap;
+			}
+
+			.budget-controls {
+				display: flex;
+				gap: 12px;
+				align-items: center;
+				flex-wrap: wrap;
+			}
+
+			.budget-selector {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+
+			.budget-selector select {
+				border: 1px solid var(--line);
+				background: var(--panel-2);
+				color: var(--text);
+				border-radius: 8px;
+				padding: 8px 12px;
+				font-size: 13px;
+				font-family: "Space Grotesk", sans-serif;
+				cursor: pointer;
+			}
+
+			.category-filter {
+				min-width: 250px;
+			}
+
+			.summary-card {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 12px;
+				padding: 16px;
+				flex: 1;
+				min-width: 200px;
+			}
+
+			.summary-card.highlight {
+				border-color: var(--teal);
+				background: var(--teal-dim);
+			}
+
+			.summary-card.over-budget {
+				border-color: var(--red);
+				background: var(--red-dim);
+			}
+
+			.summary-label {
+				font-size: 11px;
+				color: var(--text-faint);
+				text-transform: uppercase;
+				font-family: "JetBrains Mono", monospace;
+				margin-bottom: 8px;
+			}
+
+			.summary-value {
+				font-size: 24px;
+				font-family: "Space Grotesk", sans-serif;
+				font-weight: 700;
+			}
+
+			.summary-card.over-budget .summary-value {
+				color: var(--red);
+			}
+
+			.summary-sub {
+				font-size: 12px;
+				color: var(--text-soft);
+				margin-top: 4px;
+			}
+
+			.budget-bar-container {
+				height: 12px;
+				background: var(--panel-2);
+				border-radius: 999px;
+				overflow: hidden;
+				margin-top: 8px;
+			}
+
+			.budget-bar-fill {
+				height: 100%;
+				background: var(--teal);
+				transition: width 0.3s ease;
+			}
+
+			.budget-bar-fill.over {
+				background: var(--red);
+			}
+
+			.annual-table th {
+				text-align: center;
+				font-size: 9px;
+				padding: 8px 4px;
+			}
+
+			.annual-table td {
+				text-align: center;
+				font-size: 12px;
+				padding: 10px 4px;
+				font-family: "JetBrains Mono", monospace;
+			}
+
+			.annual-table td:first-child {
+				text-align: left;
+				padding-left: 12px;
+			}
+
+			.annual-table td:last-child {
+				text-align: right;
+				padding-right: 12px;
+				font-weight: 600;
+			}
+
+			.category-row {
+				background: var(--panel-2);
+				font-weight: 600;
+			}
+
+			.category-row td {
+				padding: 12px 8px !important;
+				font-size: 13px;
+			}
+
+			.subcategory-row:hover {
+				background: rgba(65, 214, 176, 0.05);
+				cursor: pointer;
+			}
+
+			.expand-icon {
+				display: inline-block;
+				transition: transform 0.2s ease;
+			}
+
+			.expand-icon.expanded {
+				transform: rotate(90deg);
+			}
+
+			.detail-row {
+				display: none;
+				background: var(--panel-2);
+			}
+
+			.detail-row.show {
+				display: table-row;
+			}
+
+			.detail-content {
+				padding: 16px;
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 16px;
+			}
+
+			.detail-stat {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				padding: 12px;
+				text-align: center;
+			}
+
+			.detail-stat-label {
+				font-size: 10px;
+				color: var(--text-faint);
+				text-transform: uppercase;
+				margin-bottom: 6px;
+			}
+
+			.detail-stat-value {
+				font-size: 18px;
+				font-family: "Space Grotesk", sans-serif;
+				font-weight: 700;
+			}
+
+			.expense-form-grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 14px;
+			}
+
+			.expense-actions {
+				display: flex;
+				gap: 10px;
+				margin-top: 16px;
+			}
+
+			.month-cell {
+				position: relative;
+			}
+
+			.month-cell.has-expense::after {
+				content: "";
+				position: absolute;
+				bottom: 2px;
+				left: 50%;
+				transform: translateX(-50%);
+				width: 4px;
+				height: 4px;
+				background: var(--amber);
+				border-radius: 50%;
+			}
+
+			.planning-grid {
+				display: grid;
+				grid-template-columns: repeat(2, 1fr);
+				gap: 16px;
+				margin-top: 16px;
+			}
+
+			.planning-month {
+				background: var(--panel-2);
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				padding: 12px;
+			}
+
+			.planning-month label {
+				display: block;
+				font-size: 11px;
+				color: var(--text-faint);
+				margin-bottom: 6px;
+			}
+
+			.planning-month input {
+				width: 100%;
+				border: 1px solid var(--line);
+				background: var(--panel);
+				color: var(--text);
+				border-radius: 6px;
+				padding: 8px;
+				font-size: 13px;
+				font-family: "JetBrains Mono", monospace;
+			}
+
+			.tab-content {
+				display: none;
+			}
+
+			.tab-content.active {
+				display: block;
+			}
+
+			.view-toggle {
+				display: flex;
+				gap: 8px;
+				margin-bottom: 16px;
+			}
+
+			.view-btn {
+				padding: 8px 16px;
+				border: 1px solid var(--line);
+				background: var(--panel-2);
+				color: var(--text-soft);
+				border-radius: 8px;
+				cursor: pointer;
+				font-family: "Space Grotesk", sans-serif;
+				font-size: 12px;
+			}
+
+			.view-btn.active {
+				background: var(--teal-dim);
+				color: var(--teal);
+				border-color: var(--teal);
+			}
+		</style>
 	</head>
 	<body data-page="orcamento">
 		<div class="app-shell">
-			<!-- ===================== BARRA LATERAL (MENU PRINCIPAL) =====================
-       Substitui o antigo menu horizontal (.hub-nav). Mesmos links de sempre,
-       em formato de coluna, com a página atual destacada em verde. -->
+			<!-- BARRA LATERAL -->
 			<aside class="sidebar">
 				<div class="sidebar-brand">
 					<div class="brand-chip"><i class="ti ti-server"></i></div>
@@ -23,7 +297,6 @@
 						<div class="sub">Gestão do setor</div>
 					</div>
 				</div>
-
 				<nav class="sidebar-nav" aria-label="Módulos do TI Hub">
 					<a class="nav-link" href="index.html"><i class="ti ti-layout-dashboard"></i> Visão geral</a>
 					<a class="nav-link" href="senhas.html"><i class="ti ti-key"></i> Lista de senhas</a>
@@ -38,9 +311,8 @@
 				</nav>
 			</aside>
 
-			<!-- ===================== ÁREA PRINCIPAL DA PÁGINA ===================== -->
+			<!-- ÁREA PRINCIPAL -->
 			<div class="main-area">
-				<!-- Barra superior: trilha de navegação (breadcrumb) + ações rápidas -->
 				<header class="topbar">
 					<div class="breadcrumb">
 						<a href="index.html">TI Hub</a>
@@ -54,46 +326,247 @@
 				</header>
 
 				<div class="wrap">
+					<!-- Cabeçalho com controles -->
+					<div class="budget-header">
+						<div>
+							<h2 style="margin: 0 0 4px; font-family: &quot;Space Grotesk&quot;, sans-serif; font-size: 20px"><i class="ti ti-wallet" style="color: var(--teal)"></i> Orçamento do Setor de TI</h2>
+							<p style="margin: 0; color: var(--text-faint); font-size: 13px">Controle de orçamento, gastos e saldo por categoria</p>
+						</div>
+						<div class="budget-controls">
+							<div class="budget-selector">
+								<label style="font-size: 12px; color: var(--text-faint)">Ano:</label>
+								<select id="yearSelector">
+									<option value="2026" selected>2026</option>
+									<option value="2027">2027</option>
+									<option value="2028">2028</option>
+								</select>
+							</div>
+							<div class="budget-selector category-filter">
+								<label style="font-size: 12px; color: var(--text-faint)">Categoria:</label>
+								<select id="categoryFilter">
+									<option value="">Todas</option>
+									<option value="GERAL">Geral</option>
+									<option value="SOFTWARE">Software</option>
+									<option value="SUPORTE">Suporte Técnico / Manutenção</option>
+									<option value="MELHORIAS">Plano de Melhorias</option>
+									<option value="PROTHEUS">Revitalização Protheus</option>
+									<option value="TREINAMENTOS">Treinamentos</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<!-- Resumo do mês atual -->
+					<div class="panel">
+						<div class="panel-head">
+							<h2><i class="ti ti-calendar"></i> Resumo do Mês Atual</h2>
+							<span id="currentMonthDisplay" style="font-size: 13px; color: var(--teal); font-family: &quot;JetBrains Mono&quot;"></span>
+						</div>
+						<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px">
+							<div class="summary-card" id="monthBudgetCard">
+								<div class="summary-label">Orçamento</div>
+								<div class="summary-value" id="monthBudgetValue">R$ 0,00</div>
+								<div class="summary-sub" id="monthBudgetSub">Total planejado</div>
+							</div>
+							<div class="summary-card" id="monthSpentCard">
+								<div class="summary-label">Gasto</div>
+								<div class="summary-value" id="monthSpentValue">R$ 0,00</div>
+								<div class="summary-sub" id="monthSpentSub">Total realizado</div>
+							</div>
+							<div class="summary-card" id="monthBalanceCard">
+								<div class="summary-label">Saldo</div>
+								<div class="summary-value" id="monthBalanceValue">R$ 0,00</div>
+								<div class="summary-sub" id="monthBalanceSub">Disponível</div>
+							</div>
+							<div class="summary-card">
+								<div class="summary-label">Utilização</div>
+								<div class="summary-value" id="monthPercentValue">0%</div>
+								<div class="budget-bar-container">
+									<div class="budget-bar-fill" id="monthBudgetBar" style="width: 0%"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Toggle de visualização -->
+					<div class="view-toggle">
+						<button class="view-btn active" data-view="annual">Visão Anual</button>
+						<button class="view-btn" data-view="expenses">Gastos</button>
+						<button class="view-btn" data-view="planning">Planejamento</button>
+					</div>
+
+					<!-- Tabela Anual -->
+					<div class="tab-content active" id="annualView">
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-table"></i> Orçamento Anual</h2>
+							</div>
+							<div class="table-wrap">
+								<table class="annual-table">
+									<thead>
+										<tr>
+											<th style="width: 30%">DESPESAS</th>
+											<th>JAN</th>
+											<th>FEV</th>
+											<th>MAR</th>
+											<th>ABR</th>
+											<th>MAI</th>
+											<th>JUN</th>
+											<th>JUL</th>
+											<th>AGO</th>
+											<th>SET</th>
+											<th>OUT</th>
+											<th>NOV</th>
+											<th>DEZ</th>
+											<th>TOTAL</th>
+										</tr>
+									</thead>
+									<tbody id="annualBudgetTable">
+										<!-- Preenchido via JavaScript -->
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<!-- Lista de Gastos -->
+					<div class="tab-content" id="expensesView">
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-plus"></i> Registrar Gasto</h2>
+							</div>
+							<form id="formExpense">
+								<div class="expense-form-grid">
+									<div class="field">
+										<label>Categoria</label>
+										<select name="categoria" id="expenseCategory" required>
+											<!-- Preenchido via JavaScript -->
+										</select>
+									</div>
+									<div class="field">
+										<label>Subcategoria</label>
+										<select name="subcategoria" id="expenseSubcategory" required>
+											<!-- Preenchido via JavaScript -->
+										</select>
+									</div>
+									<div class="field">
+										<label>Mês</label>
+										<select name="mes" required>
+											<option value="0">Janeiro</option>
+											<option value="1">Fevereiro</option>
+											<option value="2">Março</option>
+											<option value="3">Abril</option>
+											<option value="4">Maio</option>
+											<option value="5">Junho</option>
+											<option value="6">Julho</option>
+											<option value="7">Agosto</option>
+											<option value="8">Setembro</option>
+											<option value="9">Outubro</option>
+											<option value="10">Novembro</option>
+											<option value="11">Dezembro</option>
+										</select>
+									</div>
+									<div class="field">
+										<label>Valor (R$)</label>
+										<input name="valor" type="number" step="0.01" min="0" required />
+									</div>
+									<div class="field">
+										<label>Data</label>
+										<input name="data" type="date" required />
+									</div>
+									<div class="field full">
+										<label>Descrição</label>
+										<input name="descricao" placeholder="Ex: Compra de mouse e teclado" required />
+									</div>
+									<div class="field full">
+										<label>Observação</label>
+										<textarea name="observacao" placeholder="Detalhes adicionais (opcional)"></textarea>
+									</div>
+								</div>
+								<div class="expense-actions">
+									<button type="submit" class="primary">Registrar Gasto</button>
+									<button type="reset" class="ghost">Limpar</button>
+								</div>
+							</form>
+						</div>
+
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-list"></i> Histórico de Gastos</h2>
+								<div class="toolbar">
+									<input type="text" id="expenseSearch" placeholder="Buscar..." style="min-width: 200px" />
+								</div>
+							</div>
+							<div class="table-wrap">
+								<table>
+									<thead>
+										<tr>
+											<th>Data</th>
+											<th>Categoria</th>
+											<th>Subcategoria</th>
+											<th>Mês</th>
+											<th>Descrição</th>
+											<th>Valor</th>
+											<th>Ações</th>
+										</tr>
+									</thead>
+									<tbody id="expenseRows">
+										<!-- Preenchido via JavaScript -->
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<!-- Planejamento do Próximo Ano -->
+					<div class="tab-content" id="planningView">
+						<div class="panel">
+							<div class="panel-head">
+								<h2><i class="ti ti-calendar-plus"></i> Planejamento do Próximo Ano</h2>
+								<div class="budget-selector">
+									<label style="font-size: 12px; color: var(--text-faint)">Planejar ano:</label>
+									<select id="planningYear">
+										<option value="2027">2027</option>
+										<option value="2028">2028</option>
+										<option value="2029">2029</option>
+									</select>
+								</div>
+							</div>
+							<p style="color: var(--text-soft); font-size: 13px; margin-bottom: 16px">Defina o orçamento mensal para cada subcategoria. Os valores serão salvos como planejamento para o ano selecionado.</p>
+							<div id="planningContainer">
+								<!-- Preenchido via JavaScript -->
+							</div>
+							<div class="form-actions">
+								<button class="primary" id="savePlanningBtn">Salvar Planejamento</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- Cards de totais gerais -->
 					<section class="module-stats">
-						<article class="module-stat" id="budgetTotal" data-total="100000"><strong>R$ 100.000,00</strong><span>Orçamento total</span></article>
-						<article class="module-stat"><strong id="budgetSpent">R$ 0,00</strong><span>Total gasto</span></article>
-						<article class="module-stat"><strong id="budgetBalance">R$ 0,00</strong><span>Saldo restante</span></article>
-						<article class="module-stat"><strong>2026</strong><span>Exercício atual</span></article>
+						<article class="module-stat" id="budgetTotal" data-total="0">
+							<strong id="totalBudgetDisplay">R$ 0,00</strong>
+							<span>Orçamento total</span>
+						</article>
+						<article class="module-stat">
+							<strong id="budgetSpent">R$ 0,00</strong>
+							<span>Total gasto</span>
+						</article>
+						<article class="module-stat">
+							<strong id="budgetBalance">R$ 0,00</strong>
+							<span>Saldo restante</span>
+						</article>
+						<article class="module-stat">
+							<strong id="currentYearDisplay">2026</strong>
+							<span>Exercício atual</span>
+						</article>
 					</section>
+
 					<div class="panel">
 						<div class="panel-head">
 							<h2><i class="ti ti-chart-bar"></i> Utilização do orçamento</h2>
 						</div>
-						<div class="budget-progress"><i id="budgetBar"></i></div>
-					</div>
-					<div class="panel">
-						<div class="panel-head">
-							<h2><i class="ti ti-plus"></i> Registrar gasto</h2>
-						</div>
-						<form id="formExpense">
-							<div class="form-grid">
-								<div class="field"><label>Descrição</label><input name="descricao" required /></div>
-								<div class="field"><label>Categoria</label><input name="categoria" required /></div>
-								<div class="field"><label>Data</label><input name="data" type="date" /></div>
-								<div class="field"><label>Valor</label><input name="valor" type="number" step="0.01" min="0" required /></div>
-							</div>
-							<div class="form-actions"><button class="primary">Registrar gasto</button></div>
-						</form>
-					</div>
-					<div class="panel">
-						<div class="table-wrap">
-							<table>
-								<thead>
-									<tr>
-										<th>Descrição</th>
-										<th>Categoria</th>
-										<th>Data</th>
-										<th>Valor</th>
-									</tr>
-								</thead>
-								<tbody id="expenseRows"></tbody>
-							</table>
-						</div>
+						<div class="budget-progress"><i id="budgetBar" style="width: 0%"></i></div>
 					</div>
 				</div>
 			</div>
