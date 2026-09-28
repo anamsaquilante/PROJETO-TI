@@ -64,27 +64,76 @@ async function checarSessao() {
 	}
 }
 
-// Acrescenta, no fim do menu lateral, o link "Usuários" (só para admin) e
-// "Sair (nome)". Fica num único lugar (app.js) em vez de duplicar HTML em
-// cada uma das páginas.
+// Monta o rodapé do menu lateral: as opções secundárias que já existiam
+// ("Usuários", só para admin, e "Sair") + o cartão de quem está logado.
+// Fica num único lugar (app.js) em vez de duplicar HTML em cada uma das
+// páginas .html.
 function montarAreaDoUsuario() {
-	const nav = document.querySelector(".sidebar-nav");
-	if (!nav || !usuarioLogado) return;
+	const sidebar = document.querySelector(".sidebar");
+	if (!sidebar || !usuarioLogado) return;
+	const nomeExibido = usuarioLogado.nome || usuarioLogado.usuario || "";
 
-	if (usuarioLogado.role === "admin" && !nav.querySelector('[href="usuarios.html"]')) {
-		const linkUsuarios = document.createElement("a");
-		linkUsuarios.className = "nav-link" + (document.body.dataset.page === "usuarios" ? " active" : "");
-		linkUsuarios.href = "usuarios.html";
-		linkUsuarios.innerHTML = '<i class="ti ti-users"></i> Usuários';
-		nav.appendChild(linkUsuarios);
+	// Rodapé criado uma única vez, logo depois da navegação principal
+	let footer = sidebar.querySelector(".sidebar-footer");
+	if (!footer) {
+		footer = document.createElement("div");
+		footer.className = "sidebar-footer";
+		sidebar.appendChild(footer);
 	}
 
-	if (!nav.querySelector("#navSair")) {
+	// Cartão do usuário logado e suas opções
+	if (!footer.querySelector(".sidebar-user")) {
+		const partes = nomeExibido.trim().split(/\s+/).filter(Boolean);
+		const iniciais = ((partes[0] || "?")[0] + (partes.length > 1 ? partes[partes.length - 1][0] : "")).toUpperCase();
+		const perfil = papelLabel(usuarioLogado.role);
+
+		const card = document.createElement("div");
+		card.className = "sidebar-user";
+		card.dataset.tooltip = `${nomeExibido} (${perfil})`;
+
+		const avatar = document.createElement("span");
+		avatar.className = "sidebar-user-avatar";
+		avatar.setAttribute("aria-hidden", "true");
+		avatar.textContent = iniciais;
+
+		const info = document.createElement("div");
+		info.className = "sidebar-user-info";
+
+		const nomeEl = document.createElement("div");
+		nomeEl.className = "sidebar-user-name";
+		nomeEl.textContent = nomeExibido;
+
+		const perfilEl = document.createElement("div");
+		perfilEl.className = "sidebar-user-meta";
+		perfilEl.textContent = perfil;
+		info.append(nomeEl, perfilEl);
+
+		const opcoes = document.createElement("div");
+		opcoes.className = "sidebar-user-options";
+
+		const botao = document.createElement("button");
+		botao.type = "button";
+		botao.className = "sidebar-user-options-toggle";
+		botao.setAttribute("aria-label", "Opções do usuário");
+		botao.setAttribute("aria-haspopup", "true");
+		botao.setAttribute("aria-expanded", "false");
+		botao.textContent = "⋮";
+
+		const menu = document.createElement("div");
+		menu.className = "sidebar-user-dropdown";
+		menu.hidden = true;
+
+		if (usuarioLogado.role === "admin") {
+			const usuarios = document.createElement("a");
+			usuarios.href = "usuarios.html";
+			usuarios.textContent = "Usuários";
+			menu.appendChild(usuarios);
+		}
+
 		const sair = document.createElement("a");
-		sair.className = "nav-link";
 		sair.href = "#";
 		sair.id = "navSair";
-		sair.innerHTML = `<i class="ti ti-logout"></i> Sair (${TIHub.esc(usuarioLogado.nome || usuarioLogado.usuario)})`;
+		sair.textContent = "Sair";
 		sair.addEventListener("click", async (e) => {
 			e.preventDefault();
 			try {
@@ -94,7 +143,33 @@ function montarAreaDoUsuario() {
 			}
 			window.location.href = "login.html";
 		});
-		nav.appendChild(sair);
+		menu.appendChild(sair);
+
+		function fecharOpcoes() {
+			menu.hidden = true;
+			botao.setAttribute("aria-expanded", "false");
+		}
+
+		botao.addEventListener("click", (e) => {
+			e.stopPropagation();
+			const abrir = menu.hidden;
+			menu.hidden = !abrir;
+			botao.setAttribute("aria-expanded", String(abrir));
+		});
+
+		document.addEventListener("click", (e) => {
+			if (!opcoes.contains(e.target)) fecharOpcoes();
+		});
+
+		document.addEventListener("keydown", (e) => {
+			if (e.key === "Escape") fecharOpcoes();
+		});
+
+		sidebar.querySelector(".sidebar-toggle")?.addEventListener("click", fecharOpcoes);
+
+		opcoes.append(botao, menu);
+		card.append(avatar, info, opcoes);
+		footer.appendChild(card);
 	}
 }
 
@@ -109,7 +184,164 @@ async function protegerPagina() {
 	}
 	usuarioLogado = sessao;
 	montarAreaDoUsuario();
+	configurarSidebarVisual(); // agora que Usuários/Sair existem, prepara tooltip/labels deles
 	return true;
+}
+
+// Prepara os links do menu: envolve o texto em <span class="nav-label">
+// (para poder esconder só o nome no estado recolhido) e define o texto do
+// tooltip / aria-label. Pode rodar mais de uma vez sem duplicar nada.
+function prepararLinksDoSidebar(sidebar) {
+	sidebar.querySelectorAll(".nav-link").forEach((link) => {
+		if (!link.querySelector(".nav-label")) {
+			const textos = Array.from(link.childNodes).filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim());
+			if (textos.length) {
+				const span = document.createElement("span");
+				span.className = "nav-label";
+				span.textContent = textos.map((n) => n.textContent.replace(/\s+/g, " ").trim()).join(" ");
+				link.replaceChild(span, textos[0]);
+				textos.slice(1).forEach((n) => n.remove());
+			}
+		}
+		const label = link.textContent.replace(/\s+/g, " ").trim();
+		if (label && !link.dataset.tooltip) link.dataset.tooltip = label;
+		if (!link.getAttribute("aria-label")) link.setAttribute("aria-label", link.dataset.tooltip || label);
+		if (link.classList.contains("active")) link.setAttribute("aria-current", "page");
+	});
+}
+
+// Comportamento visual do menu lateral: botão recolher/expandir, tooltip
+// dos ícones e adaptação a telas pequenas. Só mexe em classes CSS - não
+// altera navegação nem dados. Pode ser chamada mais de uma vez.
+function configurarSidebarVisual() {
+	const shell = document.querySelector(".app-shell");
+	const sidebar = document.querySelector(".sidebar");
+	if (!shell || !sidebar) return;
+
+	// Já configurado: só garante que links criados depois (Usuários, Sair)
+	// também recebam label/tooltip.
+	if (sidebar.dataset.visualPronto === "true") {
+		prepararLinksDoSidebar(sidebar);
+		return;
+	}
+	const brand = sidebar.querySelector(".sidebar-brand");
+	if (!brand) return;
+	sidebar.dataset.visualPronto = "true";
+
+	// Botão de recolher/expandir (index.html já traz um; nas demais páginas
+	// ele é criado aqui, sem precisar editar cada HTML).
+	let toggle = brand.querySelector(".sidebar-toggle");
+	if (!toggle) {
+		toggle = document.createElement("button");
+		toggle.type = "button";
+		toggle.className = "sidebar-toggle";
+		brand.appendChild(toggle);
+	}
+	toggle.innerHTML = '<i class="ti ti-layout-sidebar-left-collapse"></i>';
+	const iconeToggle = toggle.querySelector("i");
+
+	// Fundo escurecido usado só quando o menu abre por cima em tela pequena
+	const backdrop = document.createElement("div");
+	backdrop.className = "sidebar-backdrop";
+	shell.appendChild(backdrop);
+
+	// Tooltip único, posicionado ao lado do ícone (menu recolhido)
+	const tooltip = document.createElement("div");
+	tooltip.className = "sidebar-tooltip";
+	tooltip.setAttribute("role", "tooltip");
+	document.body.appendChild(tooltip);
+
+	prepararLinksDoSidebar(sidebar);
+
+	const CHAVE = "tiHub.sidebarCollapsed"; // mesma chave de antes
+	const telaPequena = window.matchMedia("(max-width: 900px)");
+	let recolhidoNoDesktop = false;
+	try {
+		recolhidoNoDesktop = localStorage.getItem(CHAVE) === "true";
+	} catch (error) {
+		/* localStorage indisponível: segue expandido */
+	}
+	let abertoNaTelaPequena = false;
+
+	const esconderTooltip = () => tooltip.classList.remove("visible");
+	const mostrarTooltip = (el) => {
+		if (!shell.classList.contains("sidebar-collapsed")) return; // só no menu recolhido
+		const texto = el.dataset.tooltip;
+		if (!texto) return;
+		const r = el.getBoundingClientRect();
+		tooltip.textContent = texto;
+		tooltip.style.left = `${Math.round(r.right + 12)}px`;
+		tooltip.style.top = `${Math.round(r.top + r.height / 2)}px`;
+		tooltip.classList.add("visible");
+	};
+
+	// Aplica o estado atual nas classes do shell
+	//  - desktop/notebook: recolhido conforme a preferência salva
+	//  - tela pequena: sempre trilha de ícones; o botão abre por cima
+	const aplicarEstado = () => {
+		const pequena = telaPequena.matches;
+		const recolhido = pequena ? !abertoNaTelaPequena : recolhidoNoDesktop;
+		shell.classList.toggle("sidebar-collapsed", recolhido);
+		shell.classList.toggle("sidebar-overlay", pequena && abertoNaTelaPequena);
+		iconeToggle.className = "ti " + (recolhido ? "ti-layout-sidebar-left-expand" : "ti-layout-sidebar-left-collapse");
+		const rotulo = recolhido ? "Expandir menu lateral" : "Recolher menu lateral";
+		toggle.setAttribute("aria-label", rotulo);
+		toggle.setAttribute("aria-expanded", String(!recolhido));
+		toggle.dataset.tooltip = recolhido ? "Expandir menu" : "Recolher menu";
+		if (recolhido) toggle.removeAttribute("title");
+		else toggle.title = "Recolher menu";
+		esconderTooltip();
+	};
+
+	toggle.addEventListener("click", () => {
+		if (telaPequena.matches) {
+			abertoNaTelaPequena = !abertoNaTelaPequena;
+		} else {
+			recolhidoNoDesktop = !recolhidoNoDesktop;
+			try {
+				localStorage.setItem(CHAVE, String(recolhidoNoDesktop));
+			} catch (error) {
+				/* sem localStorage: não persiste, mas continua funcionando */
+			}
+		}
+		aplicarEstado();
+	});
+
+	// Fecha o menu aberto por cima (tela pequena)
+	const fecharSobreposto = () => {
+		if (!abertoNaTelaPequena) return;
+		abertoNaTelaPequena = false;
+		aplicarEstado();
+	};
+	backdrop.addEventListener("click", fecharSobreposto);
+	document.addEventListener("keydown", (e) => {
+		if (e.key === "Escape") fecharSobreposto();
+	});
+	telaPequena.addEventListener("change", () => {
+		abertoNaTelaPequena = false;
+		aplicarEstado();
+	});
+
+	// Tooltip: mouse e teclado (foco)
+	sidebar.addEventListener("mouseover", (e) => {
+		const alvo = e.target.closest("[data-tooltip]");
+		if (alvo && sidebar.contains(alvo)) mostrarTooltip(alvo);
+	});
+	sidebar.addEventListener("mouseout", (e) => {
+		if (e.target.closest("[data-tooltip]")) esconderTooltip();
+	});
+	sidebar.addEventListener("focusin", (e) => {
+		const alvo = e.target.closest("[data-tooltip]");
+		if (alvo) mostrarTooltip(alvo);
+	});
+	sidebar.addEventListener("focusout", esconderTooltip);
+	const nav = sidebar.querySelector(".sidebar-nav");
+	if (nav) nav.addEventListener("scroll", esconderTooltip);
+	window.addEventListener("resize", esconderTooltip);
+
+	aplicarEstado();
+	// Liga as animações só depois do estado inicial já estar na tela
+	requestAnimationFrame(() => requestAnimationFrame(() => shell.classList.add("sidebar-animar")));
 }
 
 /* =========================================================================
@@ -2550,7 +2782,7 @@ function orcLinhaSubcategoria(g, s) {
 	const chave = `${g.nome}||${s.nome}`;
 	const aberto = orcExpandidos.has(chave);
 	const tds = s.orc.map((v, i) => `<td class="month-cell ${s.gasto[i] > 0 ? "has-expense" : ""}">${orcFmtCel(v)}</td>`).join("");
-	return `<tr class="subcategory-row" data-toggle="${orcEscAttr(chave)}"><td><i class="ti ti-chevron-right expand-icon ${aberto ? "expanded" : ""}"></i> ${TIHub.esc(s.nome)}</td>${tds}<td>${orcFmtCel(orcSoma(s.orc))}</td></tr>`;
+	return `<tr class="subcategory-row" data-toggle="${orcEscAttr(chave)}"><td>${TIHub.esc(s.nome)}</td>${tds}<td>${orcFmtCel(orcSoma(s.orc))}</td></tr>`;
 }
 
 function orcLinhaDetalhe(g, s) {
@@ -2973,12 +3205,12 @@ async function renderProjects() {
 													<strong>${TIHub.esc(card.name)}</strong>
 													<p>${TIHub.esc(card.desc || "Sem descrição.")}</p>
 													<footer>
-														<span>Trello</span>
 														<a
 															href="${TIHub.esc(card.url)}"
 															target="_blank"
 															rel="noopener noreferrer"
 															title="Abrir card no Trello"
+															style="abrir-trello"
 														>
 															Abrir
 														</a>
@@ -3436,6 +3668,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 		initLogin();
 		return;
 	}
+
+	// Aplica logo o estado do menu (expandido/recolhido), sem esperar a sessão
+	configurarSidebarVisual();
 
 	const autenticado = await protegerPagina();
 	if (!autenticado) return; // já foi redirecionado pro login

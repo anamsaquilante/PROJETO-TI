@@ -17,6 +17,10 @@
 	--blue: #6db7ff;
 	--blue-dim: rgba(109, 183, 255, 0.14);
 	--shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+	--sidebar-expanded: 264px;
+	--sidebar-collapsed: 76px;
+	--sidebar-gap: 8px;
+	--sidebar-transition: 180ms ease;
 }
 /*********************************************************************************************************************************************************************************/
 
@@ -1293,126 +1297,459 @@ td:has(> .danger-mini) {
 }
 
 /* =========================================================
-   NOVA ESTRUTURA VISUAL: MENU LATERAL (SIDEBAR) + BARRA SUPERIOR
-   ---------------------------------------------------------
-   Esta seção NÃO altera nenhuma funcionalidade do sistema.
-   Ela apenas estiliza o novo "esqueleto" visual da página:
-   uma barra lateral fixa à esquerda (navegação entre módulos)
-   e uma barra superior com breadcrumb (trilha de navegação)
-   e botões de ação (notificações / contraste).
-   Todo o conteúdo funcional (formulários, tabelas, abas,
-   filtros, etc.) continua usando exatamente as mesmas classes
-   e IDs de antes — só foi movido para dentro desta nova casca.
+   SIDEBAR — reestilização visual do menu lateral
+   Dois estados:
+   - expandido: ícone + nome da opção
+   - recolhido: somente ícones (nome aparece em tooltip ao passar o mouse)
+   Classes controladas por app.js (configurarSidebarVisual):
+   .sidebar-collapsed -> estado recolhido (trilha de ícones)
+   .sidebar-overlay   -> em telas pequenas, menu expandido por cima do
+                         conteúdo (o conteúdo continua ocupando o espaço
+                         da trilha, então nada é coberto ou empurrado)
    ========================================================= */
-
-/* Container geral: sidebar + área principal lado a lado */
 .app-shell {
+	--sidebar-inset: 12px; /* respiro entre o menu e as bordas da tela */
+	--sidebar-w: var(--sidebar-expanded);
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	min-height: 100vh;
+	width: 100%;
 }
 
-/* ---------- BARRA LATERAL ---------- */
+.app-shell.sidebar-collapsed {
+	--sidebar-w: var(--sidebar-collapsed);
+}
+
+/* ---------- Painel do menu ---------- */
 .sidebar {
-	width: 264px;
-	flex: 0 0 264px;
-	background: var(--panel);
-	border-right: 1px solid var(--line);
-	padding: 22px 16px;
+	position: sticky;
+	top: var(--sidebar-inset);
+	z-index: 20;
+	flex: 0 0 var(--sidebar-w);
+	width: var(--sidebar-w);
+	min-width: var(--sidebar-w);
+	height: calc(100vh - var(--sidebar-inset) * 2);
+	height: calc(100dvh - var(--sidebar-inset) * 2);
+	margin: var(--sidebar-inset) 0 var(--sidebar-inset) var(--sidebar-inset);
+	padding: 18px 12px 12px;
 	display: flex;
 	flex-direction: column;
-	position: sticky;
-	top: 0;
-	height: 100vh;
-	overflow-y: auto;
-	scrollbar-width: thin;
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 18px;
+	box-shadow: var(--shadow);
 }
 
-/* Logo / nome do sistema no topo da sidebar */
+/* As transições só ligam depois do estado inicial ser aplicado (classe
+   .sidebar-animar, colocada pelo app.js), para o menu não "pular" a cada
+   troca de página. */
+.app-shell.sidebar-animar .sidebar {
+	transition:
+		width var(--sidebar-transition),
+		min-width var(--sidebar-transition),
+		flex-basis var(--sidebar-transition),
+		padding var(--sidebar-transition);
+}
+
+/* ---------- Cabeçalho: logotipo + nome + botão recolher ---------- */
 .sidebar-brand {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	padding: 4px 8px 18px;
-	margin-bottom: 14px;
-	border-bottom: 1px solid var(--line);
+	min-height: 40px;
+	margin: 0 0 22px;
+	padding: 0 6px;
+}
+
+.sidebar-brand > div:not(.brand-chip) {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .sidebar-brand h1 {
-	margin: 0;
-	font-family: "Space Grotesk", sans-serif;
-	font-size: 16px;
-	font-weight: 700;
+	font-size: 17px;
+	line-height: 1.15;
 }
 
 .sidebar-brand .sub {
-	margin-top: 2px;
-	color: var(--text-faint);
-	font-size: 11.5px;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-/* Rótulo do grupo de navegação (ex.: "MONITORAMENTO") */
-.nav-group-label {
-	color: var(--text-faint);
-	font-family: "JetBrains Mono", monospace;
-	font-size: 10.5px;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	padding: 0 10px;
-	margin: 6px 0 10px;
+.brand-chip {
+	flex: 0 0 36px;
 }
 
-/* Lista de links de navegação da sidebar (substitui o antigo .hub-nav) */
-.sidebar-nav {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	flex: 1;
-}
-
-.nav-link {
-	display: flex;
+.sidebar-toggle {
+	flex: 0 0 32px;
+	width: 32px;
+	height: 32px;
+	margin-left: auto;
+	padding: 0;
+	display: inline-flex;
 	align-items: center;
-	gap: 11px;
-	color: var(--text-soft);
-	text-decoration: none;
-	padding: 10px 11px;
+	justify-content: center;
+	border: 0;
 	border-radius: 9px;
-	font-size: 13px;
-	font-family: "Space Grotesk", sans-serif;
-	border-left: 3px solid transparent;
-	transition: 0.15s ease;
+	background: transparent;
+	color: var(--text-soft);
+	cursor: pointer;
+	transition:
+		background var(--sidebar-transition),
+		color var(--sidebar-transition);
 }
 
-.nav-link i {
-	font-size: 16px;
-	color: var(--text-faint);
-	flex-shrink: 0;
+.sidebar-toggle i {
+	font-size: 20px;
 }
 
-.nav-link:hover {
+.sidebar-toggle:hover {
 	background: var(--panel-2);
 	color: var(--text);
 }
 
-/* Item ativo (página atual) destacado em teal, igual à referência */
+/* ---------- Navegação principal ---------- */
+.sidebar-nav {
+	display: flex;
+	flex: 1 1 auto;
+	min-height: 0;
+	flex-direction: column;
+	gap: 4px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+
+.nav-link {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: 100%;
+	min-height: 44px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	color: var(--text-soft);
+	font-size: 13.5px;
+	font-weight: 500;
+	text-decoration: none;
+	white-space: nowrap;
+	transition:
+		background var(--sidebar-transition),
+		color var(--sidebar-transition);
+}
+
+.nav-link i {
+	flex: 0 0 20px;
+	width: 20px;
+	margin: 0;
+	text-align: center;
+	font-size: 20px;
+}
+
+.nav-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.nav-link:hover {
+	color: var(--text);
+	background: var(--panel-2);
+}
+
+/* item da página atual */
 .nav-link.active {
-	background: var(--teal-dim);
 	color: var(--teal);
-	border-left-color: var(--teal);
+	background: var(--teal-dim);
+	font-weight: 600;
 }
 
 .nav-link.active i {
 	color: var(--teal);
 }
 
-/* ---------- ÁREA PRINCIPAL (à direita da sidebar) ---------- */
-.main-area {
+.nav-link:focus-visible,
+.sidebar-toggle:focus-visible {
+	outline: 2px solid var(--teal);
+	outline-offset: 2px;
+}
+
+/* ---------- Rodapé: opções secundárias + usuário logado ---------- */
+.sidebar-footer {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: 4px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line-soft);
+}
+
+#navSair:hover {
+	color: var(--red);
+	background: var(--red-dim);
+}
+
+.sidebar-user {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	margin-top: 8px;
+	padding: 10px;
+	border-radius: 12px;
+	background: var(--panel-2);
+}
+
+/* Opções do usuário no rodapé */
+.sidebar-user {
+	position: relative;
+}
+
+.sidebar-user-options {
+	flex: 0 0 auto;
+	margin-left: auto;
+}
+
+.sidebar-user-options-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 32px;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-soft);
+	font-size: 23px;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.sidebar-user-options-toggle:hover,
+.sidebar-user-options-toggle:focus-visible {
+	background: var(--panel);
+	color: var(--text);
+}
+
+.sidebar-user-dropdown {
+	position: absolute;
+	right: 0;
+	bottom: calc(100% + 6px);
+	z-index: 30;
+	width: 150px;
+	padding: 5px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--panel-2);
+	box-shadow: var(--shadow);
+}
+
+.sidebar-user-dropdown[hidden] {
+	display: none;
+}
+
+.sidebar-user-dropdown a {
+	display: block;
+	padding: 9px 10px;
+	border-radius: 7px;
+	color: var(--text);
+	font-size: 13px;
+	text-decoration: none;
+}
+
+.sidebar-user-dropdown a:hover,
+.sidebar-user-dropdown a:focus-visible {
+	background: var(--teal-dim);
+	color: var(--teal);
+}
+
+.sidebar-user-dropdown #navSair:hover,
+.sidebar-user-dropdown #navSair:focus-visible {
+	background: var(--red-dim);
+	color: var(--red);
+}
+
+/* Recolhido: somente o controle permanece no cabeçalho */
+.app-shell.sidebar-collapsed .sidebar-brand .brand-chip,
+.app-shell.sidebar-collapsed .sidebar-user-options {
+	display: none;
+}
+
+.app-shell.sidebar-collapsed .sidebar-brand {
+	align-items: center;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+	margin-left: 0;
+}
+
+.sidebar-user-avatar {
+	flex: 0 0 34px;
+	width: 34px;
+	height: 34px;
+	display: grid;
+	place-items: center;
+	border: 1px solid rgba(65, 214, 176, 0.45);
+	border-radius: 50%;
+	background: var(--teal-dim);
+	color: var(--teal);
+	font-family: "Space Grotesk", sans-serif;
+	font-size: 12.5px;
+	font-weight: 700;
+}
+
+.sidebar-user-info {
 	flex: 1 1 auto;
 	min-width: 0;
 }
 
-/* Barra superior: breadcrumb + ações (notificações / contraste) */
+.sidebar-user-name,
+.sidebar-user-meta {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sidebar-user-name {
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.sidebar-user-meta {
+	margin-top: 2px;
+	color: var(--text-faint);
+	font-size: 11.5px;
+}
+
+/* ---------- Conteúdo principal ---------- */
+.main-area {
+	flex: 1 1 0;
+	min-width: 0;
+}
+
+.main-area .wrap {
+	max-width: none;
+	margin: 0;
+	padding: 26px 28px 64px;
+}
+
+/* ---------- Estado recolhido (somente ícones) ---------- */
+.app-shell.sidebar-collapsed .sidebar {
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-brand {
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 18px;
+	padding: 0;
+}
+
+.app-shell.sidebar-collapsed .sidebar-brand > div:not(.brand-chip),
+.app-shell.sidebar-collapsed .nav-label,
+.app-shell.sidebar-collapsed .sidebar-user-info {
+	display: none;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+	margin-left: 0;
+	background: var(--panel-2); /* fica mais fácil de achar na trilha de ícones */
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle:hover {
+	color: var(--teal);
+}
+
+.app-shell.sidebar-collapsed .nav-link {
+	justify-content: center;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.app-shell.sidebar-collapsed .sidebar-user {
+	justify-content: center;
+	padding: 8px 0;
+	background: transparent;
+}
+
+/* ---------- Tooltip do menu recolhido ----------
+   Um único elemento (criado pelo app.js) posicionado ao lado do ícone.
+   Fica fora do menu para não ser cortado pelo scroll da navegação. */
+.sidebar-tooltip {
+	position: fixed;
+	z-index: 200;
+	left: 0;
+	top: 0;
+	padding: 8px 12px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--panel-2);
+	color: var(--text);
+	box-shadow: var(--shadow);
+	font:
+		500 12.5px/1.2 Inter,
+		sans-serif;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateY(-50%) translateX(-4px);
+	transition:
+		opacity 120ms ease,
+		transform 120ms ease;
+}
+
+.sidebar-tooltip.visible {
+	opacity: 1;
+	transform: translateY(-50%) translateX(0);
+}
+
+/* ---------- Telas pequenas: menu vira trilha de ícones ----------
+   O botão abre o menu completo POR CIMA do conteúdo (sidebar-overlay),
+   com fundo escurecido; o conteúdo não é empurrado nem quebrado. */
+.sidebar-backdrop {
+	display: none;
+}
+
+.app-shell.sidebar-overlay {
+	--sidebar-w: var(--sidebar-collapsed);
+}
+
+.app-shell.sidebar-overlay .sidebar {
+	position: fixed;
+	top: var(--sidebar-inset);
+	left: var(--sidebar-inset);
+	z-index: 60;
+	width: var(--sidebar-expanded);
+	min-width: var(--sidebar-expanded);
+	margin: 0;
+	max-width: calc(100vw - var(--sidebar-inset) * 2);
+}
+
+.app-shell.sidebar-overlay .main-area {
+	margin-left: calc(var(--sidebar-collapsed) + var(--sidebar-inset));
+}
+
+.app-shell.sidebar-overlay .sidebar-backdrop {
+	display: block;
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	background: rgba(6, 10, 15, 0.55);
+}
+
+@media (max-width: 900px) {
+	.main-area .wrap {
+		padding: 20px 14px 44px;
+	}
+}
+
 .topbar {
 	display: flex;
 	justify-content: space-between;
@@ -1462,13 +1799,14 @@ topbar-actions {
 	gap: 8px;
 }
 
-icon-btn {
+.icon-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 38px;
-	height: 38px;
+	width: 30px;
+	height: 30px;
 	border-radius: 8px;
+	border-color: var(--text-soft);
 	background: var(--panel-2);
 	color: var(--text-soft);
 	font-size: 16px;
@@ -1476,34 +1814,141 @@ icon-btn {
 	transition: 0.2s ease;
 }
 
-.main-area .wrap {
-	max-width: none;
-	margin: 0;
-	padding: 26px 28px 64px;
+@media (max-width: 520px) {
+	.app-shell {
+		--sidebar-collapsed: 62px;
+		--sidebar-inset: 8px;
+	}
+
+	.app-shell.sidebar-collapsed .sidebar {
+		padding-left: 8px;
+		padding-right: 8px;
+	}
+
+	.main-area .wrap {
+		padding: 16px 12px 40px;
+	}
 }
 
-@media (max-width: 900px) {
-	.app-shell {
-		flex-direction: column;
+@media (prefers-reduced-motion: reduce) {
+	.app-shell.sidebar-animar .sidebar,
+	.nav-link,
+	.sidebar-toggle,
+	.sidebar-tooltip {
+		transition: none;
 	}
-	.sidebar {
-		position: relative;
-		width: 100%;
-		height: auto;
-		flex: none;
-		top: auto;
-	}
-	.sidebar-nav {
-		flex-direction: row;
-		flex-wrap: wrap;
-	}
-	.sidebar-user {
-		display: none;
-	}
-	.main-area .wrap {
-		padding: 20px 14px 44px;
-	}
-	.topbar {
-		padding: 14px 14px;
-	}
+}
+
+/* =========================================================================
+   LOGIN (login.html)
+   ========================================================================= */
+.login-body {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+}
+
+.login-shell {
+	width: 100%;
+	max-width: 400px;
+}
+
+.login-card {
+	margin-bottom: 0;
+}
+
+.login-logo {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 22px;
+	padding-bottom: 18px;
+	border-bottom: 1px solid var(--line);
+}
+
+.login-form {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.senha-toggle {
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	gap: 6px;
+}
+
+.senha-toggle input {
+	flex: 1;
+	min-width: 0;
+}
+
+.toggle-senha {
+	width: 42px;
+	flex: 0 0 42px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--panel-2);
+	color: var(--text-soft);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: 0.2s ease;
+}
+
+.toggle-senha:hover {
+	color: var(--teal);
+	border-color: rgba(65, 214, 176, 0.55);
+	background: var(--teal-dim);
+}
+
+.login-erro {
+	background: var(--red-dim);
+	color: var(--red);
+	border: 1px solid rgba(239, 122, 114, 0.4);
+	border-radius: 8px;
+	padding: 10px 12px;
+	font-size: 12.5px;
+}
+
+.login-btn {
+	margin-top: 4px;
+}
+
+.login-btn.loading {
+	opacity: 0.75;
+	cursor: default;
+}
+
+.login-rodape {
+	margin: 18px 0 0;
+	text-align: center;
+	color: var(--text-faint);
+	font-size: 11.5px;
+}
+
+.abrir-trello {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	border: 1px solid var(--line);
+	padding: 4px 8px;
+	font-size: 10px;
+	font-family: "JetBrains Mono", monospace;
+	background: var(--panel-2);
+	color: var(--text-soft);
+	cursor: pointer;
+	transition: 0.2s ease;
+	text-decoration: none;
+}
+
+.abrir-trello:hover {
+	color: var(--teal);
+	border-color: rgba(65, 214, 176, 0.55);
+	background: var(--teal-dim);
 }
