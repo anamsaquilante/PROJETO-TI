@@ -3210,7 +3210,7 @@ async function renderProjects() {
 															target="_blank"
 															rel="noopener noreferrer"
 															title="Abrir card no Trello"
-															style="abrir-trello"
+															class="abrir-trello"
 														>
 															Abrir
 														</a>
@@ -3276,6 +3276,69 @@ async function renderProjects() {
 /* =========================================================================
    20. TUTORIAIS (tutoriais.html)
 	========================================================================= */
+function ensureTutorialPdfModal() {
+	let modal = document.getElementById("tutorialPdfModal");
+	if (modal) return modal;
+
+	modal = document.createElement("div");
+	modal.id = "tutorialPdfModal";
+	modal.className = "modal-overlay hidden";
+	modal.setAttribute("aria-hidden", "true");
+	modal.innerHTML = `
+		<div class="tutorial-pdf-modal" role="dialog" aria-modal="true" aria-label="Visualização do tutorial em PDF">
+			<div class="tutorial-pdf-header">
+				<strong>Visualização do tutorial</strong>
+				<button class="ghost" type="button" data-close-tutorial-pdf aria-label="Fechar visualização">Fechar</button>
+			</div>
+			<div class="tutorial-pdf-body">
+				<iframe id="tutorialPdfFrame" class="tutorial-pdf-frame" title="PDF do tutorial" type="application/pdf"></iframe>
+			</div>
+		</div>
+	`;
+
+	modal.addEventListener("click", (event) => {
+		if (event.target === modal) {
+			modal.classList.add("hidden");
+			const frame = document.getElementById("tutorialPdfFrame");
+			if (frame) frame.src = "about:blank";
+		}
+	});
+
+	modal.querySelector("[data-close-tutorial-pdf]")?.addEventListener("click", () => {
+		modal.classList.add("hidden");
+		const frame = document.getElementById("tutorialPdfFrame");
+		if (frame) frame.src = "about:blank";
+	});
+
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape" && !modal.classList.contains("hidden")) {
+			modal.classList.add("hidden");
+			const frame = document.getElementById("tutorialPdfFrame");
+			if (frame) frame.src = "about:blank";
+		}
+	});
+
+	document.body.appendChild(modal);
+	return modal;
+}
+
+window.abrirTutorialPdf = function (id) {
+	const d = moduleData();
+	const tutorial = d.tutoriais.find((x) => x.id === id);
+	if (!tutorial || !tutorial.arquivoDataUrl) {
+		toast("Este tutorial ainda não possui um PDF anexado.");
+		return;
+	}
+
+	const modal = ensureTutorialPdfModal();
+	const frame = document.getElementById("tutorialPdfFrame");
+	if (!frame) return;
+
+	frame.src = tutorial.arquivoDataUrl;
+	modal.classList.remove("hidden");
+	modal.setAttribute("aria-hidden", "false");
+};
+
 function renderTutorials() {
 	const d = moduleData(),
 		el = document.getElementById("tutorialGrid");
@@ -3284,25 +3347,54 @@ function renderTutorials() {
 			.map(
 				(x) => `
 	<article class="tutorial-card">
-	<span class="status-pill status-atendimento">${TIHub.esc(x.categoria)}</span>
+		<span class="status-pill status-atendimento">${TIHub.esc(x.categoria)}</span>
 		<h3>${TIHub.esc(x.titulo)}</h3>
-		<p>${TIHub.esc(x.descrição)}</p>
-
+		<p>${TIHub.esc(x.descrição || "Sem descrição adicionada.")}</p>
+		${x.arquivoDataUrl ? `<small class="item-secondary">PDF anexado: ${TIHub.esc(x.arquivoNome || "Arquivo.pdf")}</small>` : `<small class="item-secondary">Sem PDF anexado</small>`}
 		<footer>
 			<div class="tutorial-actions">
-				<thead>
-					<tr>
-						<th><a class="tutorial-file" href="tutoriais.html#${x.id}" title="Abrir tutorial" data-tutorial-open="${x.id}"><i class="ti ti-file"></i></a></th>
-						<th><button class="edit-tutorial" type="button" title="Editar tutorial" data-tutorial-edit="${x.id}"><i class="ti ti-pencil"></i></button></th>
-						<th><button class="delete-tutorial" type="button" title="Excluir tutorial" data-tutorial-delete="${x.id}"><i class="ti ti-trash-x"></i></button></th>						
-					</tr>
-				</thead>
+				<button class="tutorial-file" type="button" title="${x.arquivoDataUrl ? "Abrir tutorial em PDF" : "Nenhum PDF anexado"}" data-tutorial-open="${x.id}" ${x.arquivoDataUrl ? "" : "disabled"}><i class="ti ti-file"></i></button>
+				<button class="edit-tutorial" type="button" title="Editar tutorial" data-tutorial-edit="${x.id}"><i class="ti ti-pencil"></i></button>
+				<button class="delete-tutorial" type="button" title="Excluir tutorial" data-tutorial-delete="${x.id}"><i class="ti ti-trash-x"></i></button>
 			</div>
 		</footer>
 	</article>`,
 			)
 			.join("");
 }
+
+function resetTutorialForm(form, cancelBtn, submitBtn) {
+	editingTutorialId = null;
+	form.reset();
+	const pdfAtual = document.getElementById("tutorialPdfAtual");
+	if (pdfAtual) pdfAtual.textContent = "";
+	const pdfInput = document.getElementById("tutorialPdf");
+	if (pdfInput) pdfInput.value = "";
+	form.hidden = true;
+	if (cancelBtn) cancelBtn.textContent = "Cancelar";
+	if (submitBtn) submitBtn.textContent = "Adicionar tutorial";
+}
+
+function abrirTutorialParaEdicao(id) {
+	const d = moduleData();
+	const tutorial = d.tutoriais.find((x) => x.id === id);
+	const form = document.getElementById("formTutorial");
+	const submitBtn = document.getElementById("submitTutorial");
+	const pdfAtual = document.getElementById("tutorialPdfAtual");
+	const pdfInput = document.getElementById("tutorialPdf");
+	if (!tutorial || !form) return;
+
+	editingTutorialId = id;
+	form.titulo.value = tutorial.titulo || "";
+	form.categoria.value = tutorial.categoria || "Onboarding";
+	form.descrição.value = tutorial.descrição || "";
+	if (pdfInput) pdfInput.value = "";
+	if (pdfAtual) pdfAtual.textContent = tutorial.arquivoNome ? `Arquivo atual: ${tutorial.arquivoNome}` : "Nenhum PDF anexado";
+	form.hidden = false;
+	if (submitBtn) submitBtn.textContent = "Salvar tutorial";
+	form.titulo.focus();
+}
+
 function initTutorials() {
 	renderTutorials();
 	const form = document.getElementById("formTutorial");
@@ -3310,51 +3402,82 @@ function initTutorials() {
 
 	const cancelBtn = document.getElementById("cancelTutorial");
 	const submitBtn = document.getElementById("submitTutorial");
+	const tutorialGrid = document.getElementById("tutorialGrid");
 
-	function resetTutorialForm() {
-		editingTutorialId = null;
-		form.reset();
-		form.hidden = true;
-		if (cancelBtn) cancelBtn.textContent = "Cancelar";
-		if (submitBtn) submitBtn.textContent = "Adicionar tutorial";
-	}
+	tutorialGrid?.addEventListener("click", async (event) => {
+		const openBtn = event.target.closest("[data-tutorial-open]");
+		if (openBtn) {
+			event.preventDefault();
+			window.abrirTutorialPdf(openBtn.dataset.tutorialOpen);
+			return;
+		}
 
-	form.addEventListener("submit", (event) => {
+		const editBtn = event.target.closest("[data-tutorial-edit]");
+		if (editBtn) {
+			event.preventDefault();
+			abrirTutorialParaEdicao(editBtn.dataset.tutorialEdit);
+			return;
+		}
+
+		const deleteBtn = event.target.closest("[data-tutorial-delete]");
+		if (deleteBtn) {
+			event.preventDefault();
+			const d = moduleData();
+			const tutorial = d.tutoriais.find((x) => x.id === deleteBtn.dataset.tutorialDelete);
+			if (!tutorial) return;
+
+			lastDeletedItem = { ...tutorial };
+			lastDeletedCollection = "tutoriais";
+			lastDeletedSource = "modulo";
+
+			d.tutoriais = d.tutoriais.filter((x) => x.id !== tutorial.id);
+			TIHub.save(d);
+			renderTutorials();
+			toast("Tutorial excluído.", true);
+		}
+	});
+
+	form.addEventListener("submit", async (event) => {
 		event.preventDefault();
 		const d = moduleData();
+		const fileInput = document.getElementById("tutorialPdf");
 		const payload = { titulo: form.titulo.value.trim(), categoria: form.categoria.value, descrição: form.descrição.value.trim() };
-		if (!payload.titulo || !payload.categoria || !payload.descrição) return;
+
+		if (!payload.titulo || !payload.descrição) return;
+
+		const arquivoSelecionado = fileInput && fileInput.files ? fileInput.files[0] : null;
+		if (arquivoSelecionado) {
+			if (arquivoSelecionado.type !== "application/pdf") {
+				toast("Selecione um arquivo PDF válido para o tutorial.");
+				return;
+			}
+			payload.arquivoDataUrl = await lerArquivoComoDataURL(arquivoSelecionado);
+			payload.arquivoNome = arquivoSelecionado.name;
+		}
 
 		if (editingTutorialId) {
 			const index = d.tutoriais.findIndex((x) => x.id === editingTutorialId);
-			if (index >= 0) d.tutoriais[index] = { ...d.tutoriais[index], ...payload };
+			if (index >= 0) {
+				const atual = d.tutoriais[index];
+				d.tutoriais[index] = { ...atual, ...payload, arquivoDataUrl: payload.arquivoDataUrl || atual.arquivoDataUrl, arquivoNome: payload.arquivoNome || atual.arquivoNome };
+			}
 		} else {
 			d.tutoriais.unshift({ id: TIHub.uid("tut"), ...payload });
 		}
 
 		TIHub.save(d);
-		resetTutorialForm();
+		resetTutorialForm(form, cancelBtn, submitBtn);
 		renderTutorials();
 	});
 
 	document.getElementById("toggleTutorialForm")?.addEventListener("click", () => {
 		const wasHidden = form.hidden;
-		resetTutorialForm();
+		resetTutorialForm(form, cancelBtn, submitBtn);
 		form.hidden = !wasHidden;
-		if (!form.hidden) form.item.focus();
+		if (!form.hidden) form.titulo.focus();
 	});
 
-	cancelBtn?.addEventListener("click", resetTutorialForm);
-
-	document.getElementById("formTutorial")?.addEventListener("submit", (e) => {
-		e.preventDefault();
-		const d = moduleData(),
-			f = e.target;
-		d.tutoriais.unshift({ id: TIHub.uid("tut"), titulo: f.titulo.value.trim(), categoria: f.categoria.value, descrição: f.descrição.value.trim() });
-		TIHub.save(d);
-		f.reset();
-		renderTutorials();
-	});
+	cancelBtn?.addEventListener("click", () => resetTutorialForm(form, cancelBtn, submitBtn));
 }
 
 /* =========================================================================
