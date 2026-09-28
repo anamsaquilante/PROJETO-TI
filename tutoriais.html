@@ -110,9 +110,15 @@
 									</select>
 								</div>
 								<div class="field"><label>Descrição</label><textarea name="descrição" required></textarea></div>
+								<div class="field">
+									<label for="tutorialPdf">Anexo PDF</label>
+									<input id="tutorialPdf" name="pdf" type="file" accept="application/pdf,.pdf" />
+									<small id="tutorialPdfAtual" class="item-secondary"></small>
+								</div>
 							</div>
 							<div class="form-actions">
-								<button class="primary">Salvar tutorial</button>
+								<button class="ghost" id="cancelTutorial" type="button">Cancelar</button>
+								<button class="primary" id="submitTutorial" type="submit">Salvar tutorial</button>
 							</div>
 						</form>
 					</div>
